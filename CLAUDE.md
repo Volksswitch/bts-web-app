@@ -120,6 +120,13 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   dropdown; parsing stops at `/*[Hidden]*/`. Add a parameter to `bliss.scad` and the UI updates.
   Two small presentation overrides live in `app.html`: `LABELS` renames a field (`graphic_svg` →
   "Graphic File") and `NO_DESC` suppresses a param's `//` comment when it's developer-facing.
+  - ⚠️ **Only the LAST `//` line above a param becomes its description** — `parseCustomizer`
+    *overwrites* `desc` on each comment line rather than accumulating, matching the desktop
+    Customizer. So a param's block reads as: developer notes first, then one whole user-facing
+    sentence on the final line (`graphic_svg` is written that way). Add explanation to the *top* of
+    a block, never the bottom, or you silently replace the field's description with a fragment —
+    `remove_Bliss_indicators` was showing "standalone-OpenSCAD user prepping their own SVG can leave
+    this off." for exactly that reason until 2026-07-23.
 - **Presets:** an editable **Concepts** combobox + **Save / New / Delete** + a dirty marker, pinned at
   the top of the Customizer pane (`buildPresetBar`), the web equivalent of the desktop Customizer's
   preset picker.
