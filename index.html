@@ -3,13 +3,52 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bliss Tactile Symbol Designer</title>
-<!-- The app lives in app.html; this redirect makes the Pages site root usable. -->
-<meta http-equiv="refresh" content="0; url=./app.html">
-<link rel="canonical" href="./app.html">
+<title>Bliss 3D-Printing Tools</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#2b8a80">
+<style>
+  :root {
+    --bg: #ffffff; --panel: #f4f6f8; --line: #d5dbe2;
+    --text: #1f2530; --muted: #667085; --accent: #2b8a80;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12161c; --panel: #1b2129; --line: #2b333d; --text: #e7ecf2; --muted: #9aa6b2; --accent: #3fb3a6; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 15px/1.5 "Segoe UI", -apple-system, sans-serif; color: var(--text); background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px; gap: 6px;
+  }
+  h1 { font-size: 22px; margin: 0; }
+  p.sub { color: var(--muted); margin: 0 0 22px; text-align: center; }
+  .cards { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 760px; }
+  a.card {
+    display: block; width: 320px; padding: 20px 22px; text-decoration: none; color: inherit;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    transition: border-color .15s, transform .15s;
+  }
+  a.card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  a.card h2 { margin: 0 0 6px; font-size: 17px; color: var(--accent); }
+  a.card p { margin: 0; color: var(--muted); font-size: 14px; }
+  footer { margin-top: 26px; color: var(--muted); font-size: 12px; text-align: center; }
+  footer a { color: var(--accent); }
+</style>
 </head>
 <body>
-<p>Redirecting to the <a href="./app.html">Bliss Tactile Symbol Designer</a>…</p>
-<script>location.replace('./app.html');</script>
+  <h1>Bliss 3D-Printing Tools</h1>
+  <p class="sub">Two browser tools that turn prepped Blissymbol SVGs into 3D-printable objects — no OpenSCAD, no command line.</p>
+  <div class="cards">
+    <a class="card" href="./symbols/">
+      <h2>Bliss Tactile Symbols →</h2>
+      <p>Turn a prepped Blissymbol SVG into a finished, 3D-printable tactile symbol.</p>
+    </a>
+    <a class="card" href="./tiles/">
+      <h2>Bliss Tiles and Puzzles →</h2>
+      <p>Build remedial and motivational tools for your Bliss Tactile Symbols.</p>
+    </a>
+  </div>
+  <footer>Public domain (CC0) — Volksswitch, <a href="https://www.volksswitch.org">www.volksswitch.org</a></footer>
 </body>
 </html>
