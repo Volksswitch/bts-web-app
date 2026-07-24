@@ -136,9 +136,11 @@ BTS web app/
 
 - **A few strings are still Symbols-worded in the engine**: the scad-update-modal heading and the
   "Symbol designer update…" log lines. Parameterize when the Tiles `.scad` update flow is exercised.
-- **The Tiles designer `.scad` needs a `scad_version` embedded** (Ken, 2026-07-24) — the Symbols
-  `.scad` has one in its `/*[Hidden]*/` block; the engine's `parseScadVersion` + the `latest_tiles_version.json`
-  update flow need the Tiles `.scad` to carry its own. That's scad-repo work (released via `bump btp`).
+- **Tiles `.scad` update flow is set up** (2026-07-24): the Tiles `.scad` carries `scad_version = 1`
+  in its `/*[Hidden]*/` block and `latest_tiles_version.json` (version 1) was created in the scad repo,
+  matching the Symbols manifest format. Both are **local/unpushed** in the scad repo until a `bump btp`
+  push; until then the deployed Tiles app's update check 404s harmlessly. The scad repo's
+  `publish-scad-version.mjs` + `RELEASING.md` may still need extending to handle the second `.scad`.
 - **The Tiles designer `.scad` + a Tiles `.json` must be provisioned into the shared folder** for
   Tiles to render there.
 

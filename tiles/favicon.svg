@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- App icon for Bliss Tiles and Puzzles. The glyph is the Blissymbol face
+       from the printed tile (head, ears, eyes, nose, mouth), drawn white on the
+       app's accent plate to match the Symbols icon's style and stay visible
+       against light or dark browser chrome. Public domain (CC0). -->
+  <rect width="512" height="512" rx="96" fill="#2b8a80"/>
+  <g fill="none" stroke="#ffffff" stroke-width="18"
+     stroke-linecap="round" stroke-linejoin="round">
+    <!-- head -->
+    <ellipse cx="256" cy="268" rx="158" ry="168"/>
+    <!-- ears -->
+    <path d="M104 244 C 48 236, 42 286, 76 302 C 110 312, 130 300, 122 272"/>
+    <path d="M408 244 C 464 236, 470 286, 436 302 C 402 312, 382 300, 390 272"/>
+    <!-- eyes -->
+    <circle cx="200" cy="236" r="33"/>
+    <circle cx="312" cy="236" r="33"/>
+    <!-- nose -->
+    <path d="M256 250 L194 344 L259 344"/>
+    <!-- mouth -->
+    <circle cx="256" cy="398" r="33"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="200" cy="236" r="8"/>
+    <circle cx="312" cy="236" r="8"/>
+  </g>
+</svg>
