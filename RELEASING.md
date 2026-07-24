@@ -79,16 +79,18 @@ NOT pre-bumped** — they move only during that app's release ritual. All number
 
 ## Releasing — trigger phrases
 
-⚠️ **Trigger-phrase taxonomy — confirm with Ken.** There are now four release streams (two
-apps + two designer `.scad`s). Proposed (backward-compatible with the old phrases, which
-meant Symbols):
+Four release streams (two apps + two designer `.scad`s), **`bts` = Bliss Tactile Symbols,
+`btp` = Bliss Tiles and Puzzles** (Ken, 2026-07-24):
 
 | Phrase | Releases |
 |---|---|
-| **"bump bts web app"** | the **Symbols** web app (`symbols/`) |
-| **"bump bts tiles web app"** | the **Tiles** web app (`tiles/`) |
-| **"bump bts"** | the **Symbols** designer `.scad` (separate repo) |
-| **"bump bts tiles"** | the **Tiles** designer `.scad` (separate repo) |
+| **"bump bts web app"** | the **Bliss Tactile Symbols** web app (`symbols/`) |
+| **"bump btp web app"** | the **Bliss Tiles and Puzzles** web app (`tiles/`) |
+| **"bump bts"** | the **Bliss Tactile Symbols** designer `.scad` (separate repo) |
+| **"bump btp"** | the **Bliss Tiles and Puzzles** designer `.scad` (separate repo) |
+
+⚠️ Within each pair the short phrase is a **prefix** of the long one (`bump bts` ⊂ `bump bts
+web app`; `bump btp` ⊂ `bump btp web app`) — read the whole phrase before acting.
 
 Ken says the phrase **only after he has verified that app's `CHANGELOG.md`.** That single
 command authorizes the ritual below **through the push** for that app.

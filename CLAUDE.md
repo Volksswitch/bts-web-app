@@ -134,15 +134,11 @@ BTS web app/
 
 ### Phase 2 — still open
 
-- **Trigger-phrase taxonomy needs Ken's confirmation** (flagged in `RELEASING.md`): four release
-  streams now (2 apps + 2 `.scad`s). Proposed, backward-compatible: `bump bts web app` → Symbols app,
-  `bump bts tiles web app` → Tiles app, `bump bts` → Symbols `.scad`, `bump bts tiles` → Tiles `.scad`.
-  Once confirmed, update the session change-control note and this file.
-- **`/symbols/` still needs a real-folder test** (render/picker/export) — headless can't drive the OS
-  folder picker. The engine is byte-derived from the old `app.html` module, so those paths are
-  unchanged, but confirm before relying on it. `git` history restores `app.html` if needed.
 - **A few strings are still Symbols-worded in the engine**: the scad-update-modal heading and the
   "Symbol designer update…" log lines. Parameterize when the Tiles `.scad` update flow is exercised.
+- **The Tiles designer `.scad` needs a `scad_version` embedded** (Ken, 2026-07-24) — the Symbols
+  `.scad` has one in its `/*[Hidden]*/` block; the engine's `parseScadVersion` + the `latest_tiles_version.json`
+  update flow need the Tiles `.scad` to carry its own. That's scad-repo work (released via `bump btp`).
 - **The Tiles designer `.scad` + a Tiles `.json` must be provisioned into the shared folder** for
   Tiles to render there.
 
@@ -547,10 +543,13 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   live in a **SEPARATE repo** (`Volksswitch/bliss-tactile-symbols`, constant `SCAD_REPO` in
   `app.html`) so the `.scad` releases **independently** of the app — a `.scad` publish never
   redeploys the app and an app release never touches the `.scad`. That repo has its own
-  `RELEASING.md` + `publish-scad-version.mjs`. **Two trigger phrases, and the shorter one is a prefix
-  of the longer — read to the end before acting** (Ken, 2026-07-23): **"bump bts"** releases the
-  `.scad` from the scad repo; **"bump bts web app"** releases this app. Test hooks:
-  `window.__parseScadVersion`, `window.__showScadUpdateModal`.
+  `RELEASING.md` + `publish-scad-version.mjs`. **Four trigger phrases** (Ken, 2026-07-24; `bts` = Bliss
+  Tactile Symbols, `btp` = Bliss Tiles and Puzzles) — and within each pair the short phrase is a
+  **prefix** of the long one, so read the whole phrase before acting: **"bump bts web app"** /
+  **"bump btp web app"** release the two web apps (`symbols/` / `tiles/` in this repo);
+  **"bump bts"** / **"bump btp"** release the two designer `.scad`s (from the scad repo). See
+  `RELEASING.md` for the table + ritual. Test hooks: `window.__parseScadVersion`,
+  `window.__showScadUpdateModal`.
 
 ---
 
