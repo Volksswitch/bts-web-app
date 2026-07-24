@@ -10,6 +10,145 @@ OpenSCAD install and no command line. It merges two public-domain Volksswitch Op
 
 **Author:** Volksswitch (www.volksswitch.org) — released to the public domain (CC0)
 
+## Two apps from one engine (Ken, 2026-07-24)
+
+This repo will host **two** web apps that are the *same engine* pointed at different files:
+**Bliss Tactile Symbols** (today's app) and **Bliss Tiles & Puzzles** (new). They differ only in
+their designer `.scad` + presets `.json`, a few identity strings, and per-app SVG folders — the
+Customizer is auto-generated from the `.scad` and the whole SVG→3D pipeline is generic, so almost
+nothing is app-specific code. Decisions Ken made setting this up:
+
+- **One repo, two independent apps.** Some users want only Symbols, and either app must be
+  updatable/deliverable without touching the other. Independence is enforced by **service-worker
+  scope**: each app lives in its own subdirectory with its own `sw.js` (distinct `CACHE_NAME`),
+  its own `latest_app_version.json`, and its own `APP_RELEASE`. Planned layout:
+  `shared/` (the extracted `bts-core.js` engine + vendored `openscad-wasm/`, `vendor/three/`),
+  `symbols/` and `tiles/` (thin shells + each app's `sw.js` + manifest), plus a root landing page.
+- **Neither app is public yet — Ken is the only user and the download URL has not been shared
+  (Ken, 2026-07-24).** So there are no other installed users to migrate: the symmetric subdir layout
+  is free, and a "first public deploy" / "bump bts web app" is a low-stakes non-event until the URL
+  is actually distributed. Testing never needs a release anyway — `server.bat` on localhost
+  exercises the whole app (FSA + WASM render both work on localhost); a release only adds the Pages
+  deploy + self-updater, which is the one part unaffected by current work. Both apps should be ready
+  before the download URL goes out.
+- **Shared engine, thin shells, no build step.** `bts-core.js` is a native ES module imported by
+  each shell (`symbols/index.html`, `tiles/index.html`); the shell defines an **`APP_CONFIG`**
+  object and passes it in. Native modules load over `python -m http.server`, so the no-bundler rule
+  holds; the only thing given up is the single-*file* convention.
+- **`APP_CONFIG` knobs** (per app): `scadBaseName`; identity strings (`<title>`, gate text, log
+  banner, Settings labels, export fallback name); the app-update axis (`APP_RELEASE`, `APP_REPO`,
+  its `latest_app_version.json`, `sw.js` `CACHE_NAME`); the scad-update axis; and the SVG folders
+  (see next bullet).
+- **SVG folders — two named folders, split across two actions (Ken, 2026-07-24).** Two subfolders:
+  **`Bliss SVG files`** (Symbols' own) and **`Basic SVG files`** (Tiles' own). The old single
+  `SVG files` folder is renamed `Bliss SVG files`; `Basic SVG files` is added — a
+  provisioning-bundle change (nothing is public yet). `APP_CONFIG.svgOwnDir` is the app's own folder
+  (Symbols `Bliss SVG files`, Tiles `Basic SVG files`); `APP_CONFIG.svgCreateSources` is the ordered
+  candidate list `['Bliss SVG files','Basic SVG files']` (same for both apps, own folder first).
+  - **Assigned / referenced graphics resolve against the app's OWN folder only.** The Graphic File
+    picker and a preset's `graphic_svg` are bare base names with no folder recorded, so they resolve
+    against `svgOwnDir` and nothing else — Symbols reads/references `Bliss SVG files`, Tiles `Basic
+    SVG files`. That picker has **no** folder selector.
+  - **Create-Graphic "+ Add symbol" may source a component from EITHER folder.** An A/B selector
+    appears in the Create-Graphic dialog **only when both folders are present** (otherwise the one
+    present folder is used silently). The component's shape is **baked into the composite**, so the
+    source folder need not be recorded. The composite **saves to the app's own folder** (`svgOwnDir`)
+    and is thereafter referenceable on the normal path.
+- **Both apps connect to the SAME folder — named `Bliss Tactile Symbols` (Ken, 2026-07-24).** One
+  provisioning folder holds *both* apps' files: `Bliss Tactile Symbols.scad` + `Bliss Tiles and
+  Puzzles.scad`, both `.json`s, and both SVG folders (`Bliss SVG files` + `Basic SVG files`). So the
+  gate **title** ("Open your … folder") names this shared folder for both apps — driven by
+  `APP_CONFIG.folderName` (`'Bliss Tactile Symbols'` in *both* shells) — while the gate **message**
+  stays per-app (each app states the `.scad`/SVG folder *it* needs, from `scadBaseName`/`svgOwnDir`).
+- **Folder discovery targets the app's own `.scad` by name**, not "the first `.scad` found"
+  — the shared folder holds both `.scad` files, so each app finds its own (`scadBaseName`). The
+  `.json` still derives from that basename.
+- **Create-Graphic is shared** — Tiles needs it too, so it stays in `bts-core.js`. It is the one
+  place the A/B source selector lives (see the SVG-folders bullet); it saves to `svgOwnDir`.
+- **Both designer `.scad` files live in the one `bliss-tactile-symbols` repo**, each with its own
+  version manifest (`latest_scad_version.json` for symbols, `latest_tiles_version.json` for tiles)
+  — same repo, independent `.scad` release streams, mirroring the app side.
+- **Phasing:** (1) ✅ parameterize `app.html` with `APP_CONFIG`, Symbols behavior unchanged.
+  (2) ✅ extract `shared/bts-core.js` + shared markup/CSS; add `symbols/` and `tiles/` shells.
+  Both shells verified to boot the shared engine with their own identity (2026-07-24).
+
+### Phase 2 layout & boot (done 2026-07-24)
+
+```
+BTS web app/
+├── shared/
+│   ├── bts-core.js      ← the engine (the old inline module); reads window.APP_CONFIG
+│   ├── bts.css          ← the old <style> block
+│   └── app-body.html    ← the old <body> markup (no <script>/<style>)
+├── symbols/  index.html · sw.js · manifest.webmanifest · latest_app_version.json
+├── tiles/    index.html · sw.js · manifest.webmanifest · latest_app_version.json
+├── openscad-wasm/ · vendor/three/   ← unmoved; shared, reached from a shell with ../
+└── index.html   ← root landing page (chooser). The OLD single-file app.html/sw.js/manifest
+                   were retired in the finalize pass (recoverable from git history).
+```
+
+- **Vendored deps stay at the repo root** (not moved into `shared/`) to avoid rewriting many import
+  paths; both shells reach them with `../`. A shell's import map maps `three`; `bts-core.js` imports
+  openscad-wasm by relative path (`../openscad-wasm/…`).
+- **Thin shell + injected markup — no build step.** Each `index.html` sets `window.APP_CONFIG`
+  (a classic `<script>`), then a module `<script>` **fetches `../shared/app-body.html` and injects
+  it as `body`'s first children** (so `<main>` stays a direct flex child, which the CSS requires),
+  **then** `import()`s `../shared/bts-core.js` (its top-level `getElementById` wiring runs after the
+  markup exists). CSS is a plain `<link>` to `../shared/bts.css`.
+- **`APP_CONFIG` now comes from the shell**, not a literal in the engine: `const APP_CONFIG =
+  window.APP_CONFIG` (the engine throws if it's missing). Added field **`appDir`** (`symbols`/`tiles`)
+  — the app's subfolder, used to build `APP_MANIFEST_URL` (`…/main/<appDir>/latest_app_version.json`)
+  and, via the shell's own `sw.js` scope, its independent update stream.
+- **Per-app service workers**: `symbols/sw.js` (`CACHE_NAME 'bts-symbols-vN'`, scope `/symbols/`) and
+  `tiles/sw.js` (`'bts-tiles-vN'`, scope `/tiles/`). `register('./sw.js')` is document-relative, so
+  each shell registers its own. Cross-scope caching of `../shared` + `../vendor` + `../openscad-wasm`
+  is fine (scope limits which *pages* a worker controls, not what it may cache).
+- **App-specific text out of the shared markup**: `app-body.html`'s gate title/message and
+  "What's new" heading are empty `id`'d elements filled at boot by `applyAppIdentity()` in the engine.
+  The gate **title** uses `APP_CONFIG.folderName` (the shared folder, same for both apps); the gate
+  **message** uses `scadBaseName`/`svgOwnDir` (per-app); Settings "About" labels use `APP_CONFIG.appName`.
+- **Release notes are per-app (done 2026-07-24).** The engine reads `APP_CONFIG.releaseNotes`; each
+  shell carries its own between the `@@RELEASE_NOTES_*@@` markers, generated from **`<app>/CHANGELOG.md`**
+  by the reworked `scripts/apply-release-notes.mjs` (processes both apps by default; reads each shell's
+  `appRelease:` and writes `window.APP_CONFIG.releaseNotes = {…}`). `CHANGELOG.md` moved to
+  `symbols/CHANGELOG.md`; `tiles/CHANGELOG.md` is new (release 1). Symbols' generated notes are
+  byte-identical to the old inline object (keys 1–10, 12–14).
+- **Tiles identity is set**: title/appName `Bliss Tiles and Puzzles`, description "Build remedial and
+  motivational tools for your Bliss Tactile Symbols.", `exportFallback: 'bliss-tile'`, `scadBaseName`
+  `Bliss Tiles and Puzzles`. The Tiles designer `.scad` exists in the `bliss-tactile-symbols` repo
+  (`C:\Users\ken\OneDrive\Desktop\bliss-tactile-symbols`); it (and optionally a Tiles `.json`) must be
+  **provisioned into the shared connected folder** for Tiles to render there.
+
+### Phase 2 — finalize (done 2026-07-24)
+
+- **Root `index.html` is now a landing page** (chooser linking to `./symbols/` and `./tiles/`),
+  replacing the old redirect-to-`app.html`.
+- **Old single-file app retired**: `app.html`, root `sw.js`, root `manifest.webmanifest`, and root
+  `latest_app_version.json` were `git rm`'d (recoverable from history). All logic now lives in
+  `shared/` + the two shells.
+- **`server.bat`** now opens the landing page (`http://localhost:8000/`), not `app.html`.
+- **Release tooling is per-app**: `scripts/apply-release-notes.mjs` (both apps by default; reads each
+  shell's `appRelease`, writes into `<app>/index.html`) and `scripts/publish-app-version.mjs <app>`
+  (writes `<app>/latest_app_version.json`). `RELEASING.md` rewritten for the two-app model.
+- **`README.md`** rewritten for the two apps + the shared-folder launch flow.
+
+### Phase 2 — still open
+
+- **Trigger-phrase taxonomy needs Ken's confirmation** (flagged in `RELEASING.md`): four release
+  streams now (2 apps + 2 `.scad`s). Proposed, backward-compatible: `bump bts web app` → Symbols app,
+  `bump bts tiles web app` → Tiles app, `bump bts` → Symbols `.scad`, `bump bts tiles` → Tiles `.scad`.
+  Once confirmed, update the session change-control note and this file.
+- **`/symbols/` still needs a real-folder test** (render/picker/export) — headless can't drive the OS
+  folder picker. The engine is byte-derived from the old `app.html` module, so those paths are
+  unchanged, but confirm before relying on it. `git` history restores `app.html` if needed.
+- **A few strings are still Symbols-worded in the engine**: the scad-update-modal heading and the
+  "Symbol designer update…" log lines. Parameterize when the Tiles `.scad` update flow is exercised.
+- **The Tiles designer `.scad` + a Tiles `.json` must be provisioned into the shared folder** for
+  Tiles to render there.
+
+The sections below describe the Symbols app's behavior — now the shared engine's behavior; file/line
+references predating the extraction point into what is now `shared/bts-core.js`.
+
 ## The only two folders in play
 
 Development touches **exactly two** folders. Nothing else on the machine is part of this work —
@@ -17,7 +156,7 @@ do not read from, write to, or reason about any other path, and do not go lookin
 
 | Folder | What it is |
 |---|---|
-| `BTS web app/` | This repo — the app shell (`app.html`, `sw.js`, vendored deps, change control). |
+| `BTS web app/` | This repo — the two app shells (`symbols/`, `tiles/`), the shared engine (`shared/`), vendored deps, change control. |
 | `bliss-tactile-symbols/` | The separate repo — canonical `.scad` + `latest_scad_version.json` only. Released independently; see below. The starter `.json` / `SVG files/` are **not** there (deleted 2026-07-22): they ship as a ZIP from the Volksswitch website, so there is no local corpus of concepts or Blissymbols to consult. |
 
 Other folders may exist on disk with similar names. They are **not** ours: they are not sources of
@@ -602,15 +741,17 @@ Step-0 work against BSI-native exports, which Ken supplies — don't go hunting 
 ## Running the app locally
 
 ```bat
-server.bat         :: starts python -m http.server 8000 (own window) and opens the app
-:: opens http://localhost:8000/app.html in the default browser
+server.bat         :: starts python -m http.server 8000 (own window) and opens the landing page
+:: opens http://localhost:8000/ — pick Symbols or Tiles (or go straight to
+:: http://localhost:8000/symbols/ or /tiles/)
 ```
 
 `file://` will not work — openscad-wasm and the File System Access API both require a secure origin
 (localhost qualifies). `server.bat` prefers `python` and falls back to `py`; the server runs in its
-own window (close it to stop). On launch the app shows the **launch gate** — click **Open folder…**
-and pick a **provisioned folder** — one holding a `.scad`, its `.json`, and `SVG files/`, i.e. what a
-user gets from the website ZIP (Ken's `…/Desktop/Bliss Tactile Symbols/` is one). Grant read/write.
+own window (close it to stop). On launch each app shows the **launch gate** — click **Open folder…**
+and pick a **provisioned folder** — one holding the app's `.scad`, its `.json`, and its SVG folder
+(`Bliss SVG files` / `Basic SVG files`), i.e. what a user gets from the website ZIP (Ken's
+`…/Desktop/Bliss Tactile Symbols/` is one). Grant read/write.
 ⚠️ Not this repo and not the scad repo: neither carries the `.json`/SVGs, so the concept list and
 graphic picker would come up empty. The folder is remembered in IndexedDB, so later runs just need one
 click to reconnect. When hosted, the user opens their own downloaded copy. **Chrome/Edge only** (FSA API).
@@ -647,20 +788,26 @@ click to reconnect. When hosted, the user opens their own downloaded copy. **Chr
 ```
 BTS web app/
 ├── CLAUDE.md          ← This file
-├── README.md          ← Short human-facing overview
-├── app.html           ← The entire app (single HTML file with inline ES module)
-├── index.html         ← Redirect stub so the GitHub Pages site root opens app.html
-├── server.bat         ← Starts the server (python http.server 8000) and opens the app
-├── sw.js              ← Service worker (offline shell + app self-update); CACHE_NAME bumped at release
-├── latest_app_version.json   ← App self-update manifest (app_release)
-├── CHANGELOG.md       ← App user-facing changes (source of the bundled "What's new" notes)
-├── RELEASING.md       ← App release process (trigger: "bump bts web app")
-├── scripts/           ← apply-release-notes.mjs, publish-app-version.mjs
-├── openscad-wasm/     ← Vendored openscad-wasm v0.0.4 (single-threaded, embedded wasm)
-└── vendor/three/      ← Vendored Three.js + OrbitControls + STLLoader
+├── README.md          ← Human-facing overview (both apps)
+├── index.html         ← Landing page: chooser linking to ./symbols/ and ./tiles/
+├── server.bat         ← Starts the server (python http.server 8000) and opens the landing page
+├── RELEASING.md       ← Release process for both apps (see the trigger-phrase table there)
+├── shared/
+│   ├── bts-core.js    ← The engine (formerly app.html's inline module); reads window.APP_CONFIG
+│   ├── bts.css        ← Shared styles (formerly app.html's <style>)
+│   └── app-body.html  ← Shared body markup, injected by each shell at boot
+├── symbols/           ← Bliss Tactile Symbols app (thin shell)
+│   ├── index.html     ← Sets window.APP_CONFIG, injects shared markup, imports the engine
+│   ├── sw.js          ← Service worker (scope /symbols/, CACHE_NAME bts-symbols-vN)
+│   ├── manifest.webmanifest · latest_app_version.json · CHANGELOG.md
+├── tiles/             ← Bliss Tiles and Puzzles app (same shape as symbols/)
+├── scripts/           ← apply-release-notes.mjs (both apps), publish-app-version.mjs <app>
+├── favicon.svg · icons/   ← shared, referenced by each shell with ../
+├── openscad-wasm/     ← Vendored openscad-wasm v0.0.4 (single-threaded, embedded wasm) — shared
+└── vendor/three/      ← Vendored Three.js + TrackballControls + STLLoader — shared
 ```
 
-Only the **app shell** is hosted in this repo. The **separate** `Volksswitch/bliss-tactile-symbols`
+Only the **app shells + shared engine** are hosted in this repo. The **separate** `Volksswitch/bliss-tactile-symbols`
 repo (released independently; see the change-control note above) is the canonical source for the
 symbol designer `.scad` (+ `latest_scad_version.json`, `SCAD-CHANGELOG.md`, `publish-scad-version.mjs`)
 — and **only** those. The starter presets `.json` + `SVG files/` are the *provisioning bundle* Ken's
