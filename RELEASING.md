@@ -117,7 +117,8 @@ The `.scad` the user carries in their folder updates **independently** of this w
 Its canonical copy + manifest live in their own repo,
 [`Volksswitch/bliss-tactile-symbols`](https://github.com/Volksswitch/bliss-tactile-symbols),
 with their own release process (see that repo's `RELEASING.md`, trigger phrase
-"publish scad version"). This is the keyguard model — and the whole point is decoupling:
+**"bump bts"** — note that this app's **"bump bts web app"** starts with the same words,
+so read the whole phrase). This is the keyguard model — the whole point is decoupling:
 
 - Publishing a new `.scad` is a push to the **scad** repo. It does **not** redeploy this
   app (no Pages rebuild, no `APP_RELEASE`/`CACHE_NAME` change).

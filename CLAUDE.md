@@ -408,9 +408,10 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   live in a **SEPARATE repo** (`Volksswitch/bliss-tactile-symbols`, constant `SCAD_REPO` in
   `app.html`) so the `.scad` releases **independently** of the app — a `.scad` publish never
   redeploys the app and an app release never touches the `.scad`. That repo has its own
-  `RELEASING.md` + `publish-scad-version.mjs` (trigger "publish scad version"). Trigger phrase to
-  release the app: **"bump bts web app"**. Test hooks: `window.__parseScadVersion`,
-  `window.__showScadUpdateModal`.
+  `RELEASING.md` + `publish-scad-version.mjs`. **Two trigger phrases, and the shorter one is a prefix
+  of the longer — read to the end before acting** (Ken, 2026-07-23): **"bump bts"** releases the
+  `.scad` from the scad repo; **"bump bts web app"** releases this app. Test hooks:
+  `window.__parseScadVersion`, `window.__showScadUpdateModal`.
 
 ---
 
