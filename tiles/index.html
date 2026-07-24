@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bliss Tiles and Puzzles</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#2b8a80">
+<link rel="apple-touch-icon" href="../icons/icon-192.png">
+
+<!-- Deps live at the repo root and are shared by both apps; the shell reaches
+     them with ../ . See symbols/index.html for the full field documentation —
+     this shell differs only in the APP_CONFIG values below. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "../vendor/three/build/three.module.min.js",
+    "three/addons/": "../vendor/three/examples/jsm/"
+  }
+}
+</script>
+
+<link rel="stylesheet" href="../shared/bts.css">
+</head>
+<body>
+<script>
+  // Per-app configuration for the shared engine (../shared/bts-core.js).
+  // TODO(Ken): confirm the values marked below.
+  window.APP_CONFIG = {
+    appName:          'Bliss Tiles and Puzzles',
+    folderName:       'Bliss Tactile Symbols',                 // the shared connected folder (both apps use it)
+    scadBaseName:     'Bliss Tiles and Puzzles',               // the designer .scad this app owns
+    svgOwnDir:        'Basic SVG files',                       // Tiles' own SVG folder
+    svgCreateSources: ['Bliss SVG files', 'Basic SVG files'],  // A/B sources (own sorted first at runtime)
+    exportFallback:   'bliss-tile',                            // last-resort export name (no preset/graphic)
+    appRelease:       1,
+    appRepo:          'Volksswitch/bliss-tactile-symbols-web', // same repo as Symbols
+    appDir:           'tiles',
+    scadRepo:         'Volksswitch/bliss-tactile-symbols',     // same repo, separate manifest ↓
+    scadManifestFile: 'latest_tiles_version.json',
+  };
+  // "What's new" notes, bundled per-app. Generated from tiles/CHANGELOG.md by
+  // scripts/apply-release-notes.mjs — do not hand-edit between the markers.
+  // @@RELEASE_NOTES_START@@
+  window.APP_CONFIG.releaseNotes = {
+  "1": [
+    "First release of the Bliss Tiles and Puzzles web app. Build remedial and motivational tools for your Bliss Tactile Symbols — turn a prepped Blissymbol SVG into a 3D-printable tile or puzzle piece entirely in Chrome or Edge, with no OpenSCAD install and no command line."
+  ]
+};
+  // @@RELEASE_NOTES_END@@
+</script>
+<script type="module">
+  try {
+    const resp = await fetch('../shared/app-body.html');
+    if (!resp.ok) throw new Error('shared/app-body.html → ' + resp.status);
+    document.body.insertAdjacentHTML('afterbegin', await resp.text());
+    await import('../shared/bts-core.js');
+  } catch (e) {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<pre style="padding:16px;color:#c0392b;white-space:pre-wrap">Failed to start the app: '
+      + (e && e.message ? e.message : e) + '</pre>');
+    throw e;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+
+<main>
+  <div id="viewcol">
+    <section id="viewport">
+      <div id="status">
+        <span id="statusmsg" class="busy">Starting…</span>
+      </div>
+    </section>
+    <!-- Button bar under the viewport. Views at the left end, a separator, then
+         the file actions (STL / PNG), and Settings pushed to the right end. The
+         app-name/release header this replaced is gone; the release now lives on
+         the Settings → About tab. -->
+    <div id="viewport-toolbar">
+        <!-- Axonometric cube icons carried over from the keyguard designer, so
+             users moving between the two apps see the same visual language: a
+             wireframe cube with the face being looked at filled in (dashed when
+             that face is hidden on the far side).
+
+             The cube paths are the keyguard's originals, drawn inside a group
+             that shrinks them about the centre (.78) to free a margin for the
+             arrow that points at the face being viewed; the group's larger
+             stroke-width cancels the shrink so the lines still land at 1.6.
+             Cube corners after the shrink: 4 -> 5.76, 20 -> 18.24, so an arrow
+             tip at 4.8 / 19.2 stops just short of the cube. -->
+      <button class="vp-btn" data-view="front" title="Front">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+            <g transform="translate(12 12) scale(.78) translate(-12 -12)" stroke-width="2.05">
+              <path d="M4 8.5 12 12 12 20 4 15.5Z" fill="currentColor" fill-opacity=".4" stroke="none"/>
+              <path d="M12 4 20 8.5 20 15.5 12 20 4 15.5 4 8.5Z"/>
+              <path d="M4 8.5 12 12 20 8.5M12 12V20"/>
+            </g>
+            <path d="M1 12H4.8M3.2 10.4 4.8 12 3.2 13.6"/>
+          </svg>
+        </button>
+      <button class="vp-btn" data-view="top" title="Top">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+            <g transform="translate(12 12) scale(.78) translate(-12 -12)" stroke-width="2.05">
+              <path d="M12 4 20 8.5 12 12 4 8.5Z" fill="currentColor" fill-opacity=".4" stroke="none"/>
+              <path d="M12 4 20 8.5 20 15.5 12 20 4 15.5 4 8.5Z"/>
+              <path d="M4 8.5 12 12 20 8.5M12 12V20"/>
+            </g>
+            <path d="M12 1V4.8M10.4 3.2 12 4.8 13.6 3.2"/>
+          </svg>
+        </button>
+        <!-- Bottom: the face being viewed is underneath and hidden, so there is
+             nothing to fill — the plain cube plus the arrow carries the meaning
+             (an earlier dashed hidden face just read as noise at 16px). -->
+      <button class="vp-btn" data-view="bottom" title="Bottom">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+            <g transform="translate(12 12) scale(.78) translate(-12 -12)" stroke-width="2.05">
+              <path d="M12 4 20 8.5 20 15.5 12 20 4 15.5 4 8.5Z"/>
+              <path d="M4 8.5 12 12 20 8.5M12 12V20"/>
+            </g>
+            <path d="M12 23V19.2M10.4 20.8 12 19.2 13.6 20.8"/>
+          </svg>
+        </button>
+      <button class="vp-btn" data-view="side" title="Side">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+            <g transform="translate(12 12) scale(.78) translate(-12 -12)" stroke-width="2.05">
+              <path d="M20 8.5 20 15.5 12 20 12 12Z" fill="currentColor" fill-opacity=".4" stroke="none"/>
+              <path d="M12 4 20 8.5 20 15.5 12 20 4 15.5 4 8.5Z"/>
+              <path d="M4 8.5 12 12 20 8.5M12 12V20"/>
+            </g>
+            <path d="M23 12H19.2M20.8 10.4 19.2 12 20.8 13.6"/>
+          </svg>
+        </button>
+        <!-- Iso has no keyguard counterpart (that app lists six orthogonal
+             views instead). Same cube, no face filled and no arrow — it isn't
+             looking down any one axis. Drawn at the same shrunk size as the
+             others so the row of icons stays visually even. -->
+      <button class="vp-btn" data-view="iso" title="Isometric">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+            <g transform="translate(12 12) scale(.78) translate(-12 -12)" stroke-width="2.05">
+              <path d="M12 4 20 8.5 20 15.5 12 20 4 15.5 4 8.5Z"/>
+              <path d="M4 8.5 12 12 20 8.5M12 12V20"/>
+            </g>
+          </svg>
+      </button>
+
+      <div class="vp-sep"></div>
+
+      <!-- Export STL: renders the whole symbol and writes it into the connected
+           folder. Stays visually "selected" (.active) and disabled for the whole
+           render, then sounds a short chime — the render can run for seconds. -->
+      <button class="vp-btn vp-text" id="exportBtn" title="Export as STL (3D print)" disabled>STL</button>
+      <!-- Two-colour export: the same two passes the preview already renders,
+           written as two STLs so a multi-material printer (or a mid-print
+           filament swap) can give the body and the graphic different colours.
+           The two-tone background (one tint per exported part) marks it as the
+           multi-colour sibling of the plain STL button. -->
+      <button class="vp-btn vp-text vp-multi" id="exportStl2Btn" title="Export as two STLs (body + graphic, for multi-colour printing)" disabled>STL</button>
+      <!-- Save the viewport exactly as shown to a PNG beside the project files
+           (the keyguard designer's PNG export). -->
+      <button class="vp-btn vp-text" id="exportPngBtn" title="Export as PNG (current view)" disabled>PNG</button>
+
+      <!-- Auto-margin separator: everything after it sits at the right-hand end. -->
+      <div class="vp-sep" style="margin-left:auto"></div>
+      <!-- Create a new compound graphic (composition is separate from assigning a
+           graphic to a symbol). Opens the Create-Graphic dialog. -->
+      <button class="vp-btn" id="createGraphicBtn" title="Create a graphic" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+          <rect x="3" y="4" width="11" height="16" rx="1.5"/>
+          <path d="M18 9v10M13 14h10"/>
+        </svg>
+      </button>
+      <button class="vp-btn" id="settings-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="hsplit" id="hsplit-cust" title="Drag to resize Customizer"></div>
+  <aside id="customizer"><div style="padding:10px;color:var(--muted)">Loading…</div></aside>
+</main>
+<div id="console"></div>
+
+<!-- SVG folder picker: search-as-you-type over the served "SVG files" folder.
+     Hidden until the Graphic Info "Open"/"Change" button is pressed. -->
+<div id="svgPicker" class="picker-overlay" hidden>
+  <div class="picker" role="dialog" aria-modal="true" aria-label="Choose an SVG file">
+    <div class="picker-head">
+      <span id="pickerFolder" class="picker-folder"></span>
+      <span id="pickerCount" class="picker-count"></span>
+    </div>
+    <div class="picker-search">
+      <input id="pickerFilter" type="text" placeholder="type to filter… (e.g. afraid, family, water)" autocomplete="off">
+    </div>
+    <div id="pickerList" class="picker-list" role="listbox" aria-label="SVG files"></div>
+    <div class="picker-foot">
+      <span class="picker-hint">↑↓ move · Enter choose · Esc cancel</span>
+      <button id="pickerCancel" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create-Graphic dialog: build a NEW compound graphic (append existing symbols
+     left-to-right, optional per-element indicator — plural ×, past or future),
+     preview it in 2D, and save it as a new .svg in the SVG files folder.
+     Separate from assigning a graphic. -->
+<div id="createOverlay" hidden>
+  <div id="createModal" role="dialog" aria-modal="true" aria-label="Create a graphic">
+    <div class="create-head">
+      <span>Create a graphic</span>
+      <button id="createClose" type="button" title="Close" aria-label="Close">✕</button>
+    </div>
+    <div class="create-body">
+      <div class="create-left">
+        <div class="create-caption">Components — left to right</div>
+        <div id="createChips" class="seq-chips"></div>
+        <button id="createAddBtn" type="button" class="svgpick-btn">+ Add symbol</button>
+        <p class="create-note">Tick <b>×</b>, <b>past</b> or <b>future</b> on a component to place that
+          indicator over it. A component carries one indicator, so ticking one clears the others —
+          including an indicator the component was drawn with.</p>
+        <label class="create-opt" title="Take the indicator a component was drawn with off the new graphic">
+          <input id="createStripBuiltIn" type="checkbox" checked>
+          Remove Bliss indicators the components came with
+        </label>
+      </div>
+      <div class="create-right">
+        <div class="create-caption">Preview</div>
+        <div id="createPreview" class="create-preview"></div>
+      </div>
+    </div>
+    <div class="create-foot">
+      <label class="create-namerow">Name
+        <input id="createName" type="text" autocomplete="off" placeholder="e.g. children">
+      </label>
+      <span class="create-spacer"></span>
+      <button id="createCancel" type="button" class="svgpick-btn">Cancel</button>
+      <button id="createSave" type="button" class="svgpick-btn create-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Launch gate: the app reads the .scad/.json/SVGs from a local folder the user
+     grants access to (File System Access API), so nothing renders until a folder
+     is opened. Shown on first load and whenever no folder is connected. -->
+<div id="launchGate" class="gate-overlay" hidden>
+  <div class="gate">
+    <h2 id="gateTitle"></h2>
+    <p id="gateMsg"></p>
+    <button id="gateOpenBtn" type="button" class="primary">Open folder…</button>
+    <!-- Only shown when a folder is remembered: escape hatch to pick a different one. -->
+    <div><button id="gateNewBtn" type="button" class="gate-link" hidden>Connect to new folder</button></div>
+    <p id="gateErr" class="gate-err" hidden></p>
+  </div>
+</div>
+
+<!-- DOM confirm (not native confirm(), which consumes the user gesture the FSA
+     permission prompt needs afterwards). Resolves true/false. -->
+<div id="confirmOverlay" class="gate-overlay" hidden>
+  <div class="gate">
+    <p id="confirmMsg"></p>
+    <div class="gate-btnrow">
+      <button id="confirmCancel" type="button">Cancel</button>
+      <button id="confirmOk" type="button" class="primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shown once after the app silently self-updates to a newer release. -->
+<div id="whatsnewOverlay" class="gate-overlay" hidden>
+  <div class="whatsnew-card">
+    <h2 id="whatsnewTitle"></h2>
+    <div id="whatsnewMsg"></div>
+    <div class="whatsnew-foot">
+      <button id="whatsnewOk" type="button" class="primary">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- Offered when the folder's symbol designer .scad is behind the published version. -->
+<div id="scadUpdateOverlay" class="gate-overlay" hidden>
+  <div class="whatsnew-card">
+    <h2>Symbol designer update available</h2>
+    <div id="scadUpdateMsg"></div>
+    <div class="whatsnew-foot su-foot">
+      <button id="scadUpdateSkip" type="button">Skip</button>
+      <button id="scadUpdateSnooze" type="button">Remind me in a week</button>
+      <button id="scadUpdateNow" type="button" class="primary">Update now</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings panel (the keyguard designer's, cut down to one tab). The category
+     list is the growth path: add a .cat here and a matching entry in
+     SETTINGS_PANELS and the new tab exists. -->
+<div id="settings-overlay">
+  <div id="settings-modal" role="dialog" aria-modal="true" aria-label="Settings">
+    <h3>Settings <span style="float:right; opacity:.4; font-size:11px; font-weight:normal; margin-top:1px;">drag to move</span></h3>
+    <div id="settings-body">
+      <div id="settings-cats">
+        <div class="cat active" data-cat="about">About</div>
+      </div>
+      <div id="settings-panel"></div>
+    </div>
+    <div id="settings-footer">
+      <button id="settings-close-btn" type="button">Close</button>
+    </div>
+  </div>
+</div>
+

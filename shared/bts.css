@@ -1,0 +1,444 @@
+  :root {
+    --bg: #ffffff;
+    --panel: #f4f6f8;
+    --panel-2: #e9edf1;
+    --line: #d5dbe2;
+    --text: #1f2530;
+    --muted: #667085;
+    --accent: #2b8a80;
+    --accent-2: #2b6cb0;
+    --danger: #c0392b;
+    --ok: #2f9e44;
+    --viewport-bg: #fffce0;   /* OpenSCAD "Cornfield" — keep in sync with scene.background */
+
+    /* Customizer typography — same scale as the keyguard designer, where these
+       are user-settable in Settings. Fixed here until this app grows a
+       Settings dialog of its own. */
+    --section-heading-pt:     14px;
+    --section-heading-weight: bold;
+    --param-text-pt:          12px;
+    --param-text-weight:      bold;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 13px/1.45 "Segoe UI", -apple-system, sans-serif;
+    color: var(--text); background: var(--bg);
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  button, .btn {
+    font: inherit; color: var(--text); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px;
+    cursor: pointer; white-space: nowrap;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 600; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+
+  main { display: flex; flex: 1 1 auto; min-height: 0; }
+
+  /* Customizer — sits on the RIGHT, matching the keyguard designer (and native
+     OpenSCAD, where the Customizer docks right of the viewport). The pane is
+     last in the DOM too, so tab order follows the visual order. */
+  #customizer {
+    width: 280px; flex: 0 0 280px; background: var(--panel);
+    border-left: 1px solid var(--line); overflow-y: auto; padding: 0 0 40px;
+  }
+  /* Preset picker — pinned above the parameter groups, visually distinct from
+     them so it reads as "load a whole configuration", not one more field. */
+  .presetbar {
+    padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--panel-2);
+  }
+  .presetbar label.name {
+    display: block; margin-bottom: 3px; color: var(--accent);
+    font-size: var(--section-heading-pt); font-weight: var(--section-heading-weight);
+  }
+  /* Editable preset combobox, ported from the keyguard designer (which calls it
+     a mirror of OpenSCAD's Qt combobox). A real <select> renders as an OS widget
+     whose text can never be selected or copied — this is a text input + a ▾
+     button + an absolutely-positioned <ul>, so the concept name is ordinary,
+     copyable text. */
+  .preset-combo { position: relative; display: flex; min-width: 0; }
+  .preset-combo input {
+    flex: 1 1 auto; min-width: 0; font-family: inherit; font-size: 12px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 3px 4px;
+  }
+  .preset-combo input:focus { outline: none; border-color: var(--accent); }
+  .preset-combo input::placeholder { color: var(--muted); font-style: italic; }
+  /* Darker than the --panel-2 presetbar it sits on, so the ▾ button reads as a
+     distinct control instead of blending into the surrounding pane. */
+  .preset-combo .combo-btn {
+    flex: 0 0 auto; margin-left: 2px; padding: 0 7px; font-size: 11px; line-height: 1;
+    color: var(--text); background: #c4cdd8; border: 1px solid #a7b2c0;
+    border-radius: 4px; cursor: pointer;
+  }
+  .preset-combo .combo-btn:hover { background: #b4bfcd; border-color: var(--accent); }
+  .preset-combo ul {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 60; margin: 2px 0 0; padding: 2px 0;
+    display: none; max-height: 46vh; overflow-y: auto; list-style: none;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 5px;
+    box-shadow: 0 8px 24px rgba(20,28,38,.22);
+  }
+  .preset-combo ul.open { display: block; }
+  .preset-combo li {
+    padding: 3px 8px; cursor: pointer; font-size: 12px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .preset-combo li:hover { background: var(--panel-2); }
+  .preset-combo li.active { background: var(--panel-2); font-weight: 600; }
+  /* Graphic-SVG field: text box + Open/Change button on one row. */
+  .svgpick { display: flex; gap: 6px; align-items: center; }
+  .svgpick input[type=text] { flex: 1 1 auto; min-width: 0; }
+  .svgpick-btn {
+    flex: 0 0 auto; font-family: inherit; font-size: 12px; cursor: pointer;
+    color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 4px; padding: 3px 10px;
+  }
+  .svgpick-btn:hover { border-color: var(--accent); }
+  .svgpick-btn:disabled { opacity: .4; cursor: default; border-color: var(--line); }
+
+  /* Component chips (used in the Create-Graphic dialog). */
+  .seq-chips { display: flex; flex-direction: column; gap: 6px; }
+  .seq-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+  .seq-chip {
+    display: flex; align-items: center; gap: 3px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px;
+    padding: 3px 4px 3px 6px;
+  }
+  .seq-chip-name { font-size: 13px; color: var(--text); flex: 1 1 auto; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seq-chip-btn {
+    font-family: inherit; font-size: 15px; line-height: 1; cursor: pointer;
+    color: var(--muted); background: none; border: none; border-radius: 3px; padding: 2px 5px;
+  }
+  .seq-chip-btn:hover:not(:disabled) { color: var(--accent); background: var(--panel); }
+  .seq-chip-btn:disabled { opacity: .3; cursor: default; }
+  .chip-ind { display: inline-flex; align-items: center; gap: 3px; font-size: 12px;
+    color: var(--muted); cursor: pointer; padding: 0 3px; user-select: none; white-space: nowrap; }
+  .chip-ind input { margin: 0; }
+
+  /* Create-Graphic dialog */
+  #createOverlay {
+    position: fixed; inset: 0; z-index: 60; background: rgba(20,28,38,.34);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #createOverlay[hidden] { display: none; }
+  #createModal {
+    width: 720px; max-width: 94vw; max-height: 88vh; display: flex; flex-direction: column;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(20,28,38,.28); overflow: hidden;
+  }
+  .create-head {
+    display: flex; align-items: center; padding: 10px 14px; font-weight: 600; font-size: 14px;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .create-head button {
+    margin-left: auto; border: none; background: none; cursor: pointer;
+    font-size: 15px; color: var(--muted); padding: 2px 6px; border-radius: 4px;
+  }
+  .create-head button:hover { color: var(--accent); background: var(--panel-2); }
+  .create-body { flex: 1 1 auto; display: flex; min-height: 0; }
+  .create-left  { flex: 0 0 300px; display: flex; flex-direction: column; gap: 8px;
+    padding: 12px 14px; border-right: 1px solid var(--line); overflow-y: auto; }
+  .create-right { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; min-width: 0; }
+  .create-caption { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .create-left .svgpick-btn { align-self: flex-start; }
+  .create-note { font-size: 11px; color: var(--muted); margin: 2px 0 0; }
+  .create-note b { color: var(--text); }
+  .create-opt { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text);
+    cursor: pointer; user-select: none; margin-top: 6px; }
+  .create-opt input { margin: 0; }
+  .create-preview {
+    flex: 1 1 auto; display: flex; align-items: center; justify-content: center;
+    min-height: 260px; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 10px;
+  }
+  .create-preview svg { max-width: 100%; max-height: 42vh; }
+  .create-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+  .create-foot {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-top: 1px solid var(--line); background: var(--panel);
+  }
+  .create-namerow { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); }
+  .create-namerow input {
+    font-family: inherit; font-size: 13px; color: var(--text); width: 200px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px;
+  }
+  .create-namerow input:focus { outline: none; border-color: var(--accent); }
+  .create-spacer { flex: 1 1 auto; }
+  .create-save { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .create-save:disabled { opacity: .45; border-color: var(--line); color: var(--muted); }
+
+  /* SVG folder picker (modal) */
+  .picker-overlay {
+    position: fixed; inset: 0; z-index: 90; background: rgba(20,28,38,.34);
+    display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh;
+  }
+  .picker-overlay[hidden] { display: none; }
+  .picker {
+    width: 460px; max-width: 92vw; max-height: 76vh; display: flex; flex-direction: column;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(20,28,38,.28); overflow: hidden;
+  }
+  .picker-head {
+    display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .picker-folder { font-size: 13px; color: var(--text); font-weight: 600; display: flex; align-items: center; gap: 0; }
+  .picker-folder-lbl { color: var(--muted); font-weight: 600; margin-right: 6px; }
+  .picker-folder-btn {
+    font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    color: var(--text); background: var(--bg); border: 1px solid var(--line); padding: 3px 9px;
+  }
+  .picker-folder-btn:first-of-type { border-radius: 5px 0 0 5px; }
+  .picker-folder-btn:last-of-type  { border-radius: 0 5px 5px 0; border-left: none; }
+  .picker-folder-btn.active { background: #06c; color: #fff; border-color: #06c; }
+  .picker-count { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .picker-search { padding: 9px 12px 6px; }
+  .picker-search input {
+    width: 100%; font-family: inherit; font-size: 13px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 5px 8px;
+  }
+  .picker-search input:focus { outline: none; border-color: var(--accent); }
+  .picker-list { flex: 1 1 auto; overflow-y: auto; padding: 2px 6px 6px; min-height: 120px; }
+  .picker-row {
+    padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 13px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .picker-row.active { background: var(--panel-2); }
+  .picker-row mark { background: #fff3bf; color: inherit; border-radius: 2px; padding: 0 1px; }
+  .picker-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
+  .picker-foot {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border-top: 1px solid var(--line); background: var(--panel);
+  }
+  .picker-hint { margin-right: auto; font-size: 11px; color: var(--muted); }
+  .picker-foot button {
+    font-family: inherit; font-size: 12px; cursor: pointer; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 3px 12px;
+  }
+  .picker-foot button:hover { border-color: var(--accent); }
+
+  /* Launch gate + confirm modal */
+  .gate-overlay {
+    position: fixed; inset: 0; z-index: 60; background: rgba(20,28,38,.42);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .gate-overlay[hidden] { display: none; }
+  .gate {
+    width: 440px; max-width: 92vw; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: 0 16px 48px rgba(20,28,38,.32); padding: 22px 24px;
+    text-align: center;
+  }
+  .gate h2 { margin: 0 0 10px; font-size: 18px; color: var(--text); }
+  .gate p { margin: 0 0 14px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .gate .primary {
+    font-family: inherit; font-size: 13px; cursor: pointer; color: #fff;
+    background: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 7px 18px;
+  }
+  .gate .primary:hover { filter: brightness(1.06); }
+  /* Reconnect button: "Reconnect to" over the remembered folder's name. */
+  .gate .primary .btn-l2 { display: block; font-weight: 600; margin-top: 2px; }
+  .gate-btnrow { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .gate-btnrow button {
+    font-family: inherit; font-size: 13px; cursor: pointer; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 7px 16px;
+  }
+  .gate-btnrow button.primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+  .gate-link {
+    display: inline-block; margin-top: 10px; font-family: inherit; font-size: 12px;
+    cursor: pointer; color: var(--accent); background: none; border: 0; padding: 0;
+    text-decoration: underline;
+  }
+
+  /* "What's new" post-update notice — shown once after the app self-updates to a
+     newer release. Reuses the gate overlay backdrop; its own card so the list
+     can scroll. */
+  .whatsnew-card {
+    width: 470px; max-width: 92vw; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: 0 16px 48px rgba(20,28,38,.32); overflow: hidden;
+  }
+  .whatsnew-card h2 {
+    margin: 0; padding: 14px 18px; border-bottom: 1px solid var(--line);
+    background: var(--panel-2); font-size: 16px; color: var(--text);
+  }
+  #whatsnewMsg { padding: 16px 18px; font-size: 13px; line-height: 1.5; color: var(--text);
+    max-height: 60vh; overflow-y: auto; }
+  #whatsnewMsg .wn-intro { color: var(--muted); }
+  #whatsnewMsg .wn-relhead { margin-top: 12px; font-weight: 600; color: var(--text); }
+  #whatsnewMsg ul { margin: 4px 0 0; padding-left: 20px; color: var(--muted); }
+  #whatsnewMsg li { margin-bottom: 4px; }
+  .whatsnew-foot { padding: 10px 18px; border-top: 1px solid var(--line); text-align: right; background: var(--panel); }
+
+  /* SCAD-file update modal — reuses the whatsnew-card shell; its footer holds
+     three choices and the body can show a code-styled filename. */
+  #scadUpdateMsg { padding: 16px 18px; font-size: 13px; line-height: 1.5; color: var(--text);
+    max-height: 60vh; overflow-y: auto; }
+  #scadUpdateMsg .su-intro { margin-top: 10px; color: var(--muted); }
+  #scadUpdateMsg .su-foot-note { margin-top: 12px; color: var(--text); }
+  #scadUpdateMsg ul { margin: 4px 0 0; padding-left: 20px; color: var(--muted); }
+  #scadUpdateMsg li { margin-bottom: 4px; }
+  #scadUpdateMsg code { background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 3px; padding: 0 4px; font-size: 12px; }
+  .whatsnew-foot.su-foot { display: flex; gap: 8px; justify-content: flex-end; }
+  .gate-err { color: var(--danger); font-weight: 500; }
+  .gate-note { font-size: 11px; color: var(--muted); margin: 10px 0 0; }
+
+  /* Preset management row (Save / Add / Delete + dirty marker) */
+  .preset-actions { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .preset-actions button {
+    font-family: inherit; font-size: 12px; cursor: pointer; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 3px 9px;
+  }
+  .preset-actions button:hover:not(:disabled) { border-color: var(--accent); }
+  .preset-actions button:disabled { opacity: .45; cursor: default; }
+  .preset-actions .spring { flex: 1 1 auto; }
+  .dirty-marker { color: var(--danger); font-weight: 600; font-size: 12px; visibility: hidden; }
+  .dirty-marker.visible { visibility: visible; }
+
+  .group { border-bottom: 1px solid var(--line); }
+  .group > summary {
+    cursor: pointer; padding: 7px 10px; list-style: none; user-select: none;
+    font-size: var(--section-heading-pt); font-weight: var(--section-heading-weight);
+    color: var(--accent); background: var(--panel-2);
+  }
+  .group > summary:hover { filter: brightness(.97); }
+  .group > summary::-webkit-details-marker { display: none; }
+  .group > summary::before { content: "▸ "; color: var(--muted); }
+  .group[open] > summary::before { content: "▾ "; }
+  .group > .groupbody { padding: 8px 10px 10px; font-size: var(--param-text-pt); }
+  .field { margin-bottom: 8px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label.name {
+    display: block; margin-bottom: 2px; color: var(--text);
+    font-size: var(--param-text-pt); font-weight: var(--param-text-weight);
+  }
+  .field .desc { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .field input[type=text], .field input[type=number], .field select {
+    width: 100%; font-family: inherit; font-size: 12px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+    padding: 2px 4px;
+  }
+  .field .rangewrap { display: flex; align-items: center; gap: 6px; }
+  .field input[type=range] { flex: 1 1 auto; min-width: 0; margin: 0; accent-color: var(--accent); }
+  /* Number spinner beside the slider. Fixed basis (keyguard uses 5.5rem) so the
+     sliders all start at the same x; overrides the full-width input rule above. */
+  .field input[type=number].rangeval {
+    flex: 0 0 5.5rem; width: 5.5rem; text-align: right;
+    font-variant-numeric: tabular-nums; color: var(--text);
+  }
+
+  /* Viewport column — the 3D view with its button bar pinned underneath, so the
+     bar is part of the view rather than a separate app-wide header. */
+  #viewcol { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  #viewport { flex: 1 1 auto; position: relative; min-width: 0; min-height: 0; background: var(--viewport-bg); }
+  #viewport canvas { display: block; }
+  /* Drag-and-drop is still supported; the outline on dragover is the only
+     affordance for it now that the standing hint text is gone. */
+  #viewport.dragover { outline: 3px dashed var(--accent); outline-offset: -6px; }
+
+  #status {
+    position: absolute; left: 12px; bottom: 12px; right: 12px;
+    display: flex; align-items: center; gap: 10px; pointer-events: none;
+  }
+  #statusmsg {
+    background: rgba(255,255,255,.9); border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 10px; font-size: 12.5px; pointer-events: auto; color: var(--muted);
+  }
+  /* An empty pill would still paint its background + padding as a small
+     floating box, so collapse it whenever there's no text (as the keyguard
+     designer does). Success messages clear themselves; errors persist. */
+  #statusmsg:empty { display: none; }
+  #statusmsg.ok { color: var(--ok); }
+  #statusmsg.err { color: var(--danger); }
+  #statusmsg.busy { color: var(--accent-2); }
+  /* Button bar under the viewport (the keyguard designer's #viewport-toolbar).
+     Views on the left, then a separator and the file actions; Settings is pushed
+     to the right-hand end by the auto-margin separator before it. */
+  #viewport-toolbar {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 4px;
+    padding: 0 8px; height: 44px; overflow: hidden;
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  /* Sized 50% up from the keyguard's 16px icon buttons: 24px glyphs in a
+     6px/9px box, so the row reads comfortably at arm's length. */
+  .vp-btn {
+    padding: 6px 9px; min-width: 39px; line-height: 0;
+    background: var(--panel-2); color: #333; border-radius: 6px;
+  }
+  .vp-btn:hover:not(:disabled) { background: #fff; border-color: var(--accent); color: var(--accent); }
+  .vp-btn.active { background: #cfe0f5; border-color: var(--accent); color: var(--accent); }
+  /* currentColor lets the hover accent flow into the glyph. */
+  .vp-btn svg { width: 24px; height: 24px; display: block; pointer-events: none; }
+  /* Text buttons (STL / PNG, as in the keyguard designer). line-height matches
+     the 24px icon box so a lettered button is exactly as tall as an icon one. */
+  .vp-text { line-height: 24px; font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+  /* The keyguard designer's export-group blue (#06c literally, not this app's
+     teal accent), held through hover and the pressed .active state so the
+     lettering never flips colour mid-export. */
+  .vp-btn.vp-text,
+  .vp-btn.vp-text:hover:not(:disabled),
+  .vp-btn.vp-text.active { color: #06c; }
+  /* Two-colour STL export. The lettering is the same #06c as the other two text
+     buttons — the two-tone background alone marks it as the multi-colour one.
+     One tint per exported part (body | graphic), split down the middle with a
+     hard stop rather than a blend so it reads as two colours and not a
+     gradient, and pale enough to keep the blue letters legible. Declared as
+     background-IMAGE so it survives the
+     hover and .active rules above, which set the background *shorthand* (and so
+     would otherwise reset the image to none); those still repaint the colour
+     underneath, so both states continue to register normally. The three
+     selectors are repeated for that reason — same specificity as the .vp-btn
+     rules, winning on source order. */
+  .vp-multi,
+  .vp-multi:hover:not(:disabled),
+  .vp-multi.active {
+    background-image: linear-gradient(90deg, #dce9fd 0 50%, #fbdedd 50% 100%);
+  }
+  .vp-sep { flex: 0 0 auto; width: 1px; height: 24px; background: var(--line); margin: 0 6px; }
+
+  /* Console */
+  #console {
+    display: none;   /* hidden; logLine still records to it for tests/diagnostics */
+    flex: 0 0 auto; max-height: 130px; overflow-y: auto; background: #f7f8fa;
+    border-top: 1px solid var(--line); font-family: ui-monospace, Consolas, monospace;
+    font-size: 11.5px; color: var(--muted); padding: 6px 12px; white-space: pre-wrap;
+  }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--line); vertical-align: -1px; }
+  input[type=file] { display: none; }
+
+  /* Splitter between viewport and Customizer (keyguard's .hsplit). */
+  .hsplit {
+    width: 5px; flex: 0 0 auto; cursor: col-resize; background: #d4d4d4;
+    border-left: 1px solid #b8b8b8; border-right: 1px solid #b8b8b8;
+  }
+  .hsplit:hover { background: #b0c0e0; }
+  /* While dragging, suppress text selection and keep the resize cursor even
+     when the pointer strays off the 5px strip. */
+  body.dragging, body.dragging * { user-select: none !important; cursor: col-resize !important; }
+
+  /* ---------- Settings modal (ported from the keyguard designer) ----------
+     A category list on the left and a panel on the right. Only "About" exists
+     today; the two-pane frame is here so further tabs are a one-line addition
+     to SETTINGS_PANELS. */
+  #settings-overlay { position: fixed; inset: 0; background: rgba(20,28,38,.35); display: none; z-index: 1000; }
+  #settings-overlay.open { display: block; }
+  #settings-modal {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 560px; max-width: 90vw; height: 380px; max-height: 80vh;
+    display: flex; flex-direction: column;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(20,28,38,.32);
+  }
+  #settings-modal h3 {
+    margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--line);
+    font-size: 14px; background: var(--panel); border-radius: 8px 8px 0 0; cursor: move;
+  }
+  #settings-body { flex: 1; display: flex; min-height: 0; }
+  #settings-cats { width: 140px; flex: 0 0 140px; border-right: 1px solid var(--line); background: var(--panel); padding: 6px 0; }
+  #settings-cats .cat { padding: 6px 14px; cursor: pointer; font-size: 12px; }
+  #settings-cats .cat:hover { background: var(--panel-2); }
+  #settings-cats .cat.active { background: #d8e6f8; color: var(--accent); font-weight: bold; }
+  #settings-panel { flex: 1; padding: 14px; overflow: auto; font-size: 12px; }
+  #settings-panel .setting > label { display: block; font-weight: bold; margin-bottom: 4px; }
+  #settings-footer { padding: 8px 14px; border-top: 1px solid var(--line); text-align: right; background: var(--panel); border-radius: 0 0 8px 8px; }

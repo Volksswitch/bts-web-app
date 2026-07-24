@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bliss Tactile Symbol Designer</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<!-- Installability (PWA): the manifest + a 192/512 PNG icon pair are what make
+     Chrome/Edge offer "Install" in the address bar; the service worker alone is
+     not enough. theme-color tints the installed window's title bar. -->
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#2b8a80">
+<link rel="apple-touch-icon" href="../icons/icon-192.png">
+
+<!-- Deps live at the repo root and are shared by both apps; the shell reaches
+     them with ../ . three is a bare specifier resolved by this import map; the
+     shared engine (../shared/bts-core.js) imports openscad-wasm by relative path. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "../vendor/three/build/three.module.min.js",
+    "three/addons/": "../vendor/three/examples/jsm/"
+  }
+}
+</script>
+
+<link rel="stylesheet" href="../shared/bts.css">
+</head>
+<body>
+<!-- Per-app configuration for the shared engine. Everything that differs between
+     the Symbols and Tiles apps is set here and read by ../shared/bts-core.js.
+       • appName          — startup log banner (the <title> above is separate).
+       • scadBaseName      — WHICH designer .scad this app owns (found by name in the
+                             connected folder; the presets .json is <scadBaseName>.json).
+       • svgOwnDir         — this app's OWN SVG folder: where the Graphic File picker and
+                             preset graphic_svg references resolve (own folder only), and
+                             where Create-Graphic saves composites.
+       • svgCreateSources  — folders Create-Graphic's "+ Add symbol" may source from (an
+                             A/B selector appears only when both are present; own first).
+       • exportFallback    — export base name when no preset/graphic names the output.
+       • appRelease/appRepo/appDir — this app's self-update axis. appDir is this app's
+                             subfolder in the repo (its sw.js + latest_app_version.json).
+       • scadRepo/scadManifestFile — the designer .scad update axis. Both apps' .scad
+                             files live in scadRepo, each with its own manifest file. -->
+<script>
+  window.APP_CONFIG = {
+    appName:          'Bliss Tactile Symbol Designer',
+    folderName:       'Bliss Tactile Symbols',   // the shared connected folder (both apps use it)
+    scadBaseName:     'Bliss Tactile Symbols',
+    svgOwnDir:        'Bliss SVG files',
+    svgCreateSources: ['Bliss SVG files', 'Basic SVG files'],
+    exportFallback:   'bliss-symbol',
+    appRelease:       15,
+    appRepo:          'Volksswitch/bliss-tactile-symbols-web',
+    appDir:           'symbols',
+    scadRepo:         'Volksswitch/bliss-tactile-symbols',
+    scadManifestFile: 'latest_scad_version.json',
+  };
+  // "What's new" notes, bundled per-app. Generated from symbols/CHANGELOG.md by
+  // scripts/apply-release-notes.mjs — do not hand-edit between the markers.
+  // @@RELEASE_NOTES_START@@
+  window.APP_CONFIG.releaseNotes = {
+  "1": [
+    "First release of the Bliss Tactile Symbol Designer web app. Turn a prepped Blissymbol SVG into a finished, 3D-printable tactile symbol STL entirely in Chrome or Edge — no OpenSCAD install and no command line."
+  ],
+  "2": [
+    "The app keeps your symbol designer file up to date. When you open your folder, if a newer version of the symbol designer program has been published, the app offers to download it and replace your local copy — keeping your saved concepts. You can update now, be reminded in a week, or skip. The notice lists what changed so you can decide."
+  ],
+  "3": [
+    "You can now install the designer as an app. In Chrome or Edge an install button appears at the right-hand end of the address bar; installing gives it its own window and a desktop/Start-menu icon, with no browser tabs or address bar. It is the same app either way — your folder, concepts and files are unchanged."
+  ],
+  "4": [
+    "A button bar under the 3D view. The view buttons have moved out of the corner of the 3D view into a bar along the bottom, and are half again as large. Next to them are buttons to export the STL and to save a picture of the 3D view as a PNG file, both saved into your folder. The Export STL button stays lit while the export runs and chimes when it finishes.",
+    "A Settings panel. The gear button at the right-hand end of the button bar opens Settings, which starts with an About tab showing the app release, the version of the symbol designer program in your folder, the license, and where the tool comes from. More settings will be added here over time.",
+    "The grey title bar at the top of the page is gone, giving the 3D view more room. The app release number it used to show now lives in Settings → About."
+  ],
+  "5": [
+    "Two-colour printing. A second, multi-coloured STL button in the button bar saves the symbol as two files — \"<name> - body.stl\" and \"<name> - graphic.stl\" — so the raised graphic can be printed in a different colour from the body. In your slicer, load the body file first, then right-click it and choose Add Part → Load… and pick the graphic file — it drops into place at the right height automatically, and you can then give each part its own filament (or use a filament change part-way through the print). Load the body first: opening both files together puts the graphic in the wrong place. The original single-file STL button is unchanged."
+  ],
+  "6": [
+    "Build your own graphics from existing ones. A new Create button (next to Settings, below the viewport) opens a dialog where you can string existing Bliss graphics together left to right — for example \"1\" then \"0\" to make \"10\" — and optionally place a plural mark (×) over any one of them. The result is drawn in 2D as you build it, with the Bliss guidelines shown for reference; give it a name and save it, and it drops into your SVG files folder so you can pick it in Graphic File just like the graphics that came with the app.",
+    "Concepts no longer inherit settings from each other. Choosing a concept now sets every setting, not just the ones that concept saved: anything it doesn't mention goes back to the symbol designer file's default instead of keeping the value left behind by the concept you had open before. A concept now looks the same however you arrive at it. (Most of the supplied concepts don't save every setting, so this is noticeable — switching between them no longer carries over things like the velcro mounts, the earth and sky lines, or where the braille sits.)",
+    "A known starting point in the Concepts list. The list now opens with \"design default values\", the same entry the desktop Customizer offers. Choosing it sets every setting back to the symbol designer file's own defaults and clears the graphic, so you can start a new concept from a known place instead of from whatever the last concept left behind. It is built in rather than saved in your concepts file, so it is always there and cannot be renamed, deleted, or saved over — pressing Save after choosing it asks for a name for a new concept."
+  ],
+  "7": [
+    "The graphic picker always shows what is in your folder right now. Pressing Open or Change re-reads the SVG files folder each time, so a graphic added since you started the app — by the Create dialog or by you, outside the browser — is in the list straight away, with no reload.",
+    "Exporting tells you where the file went. The message under the 3D view now names the folder — \"Exported afraid.stl to the Bliss Tactile Symbols folder\" — instead of just saying \"the folder\". The picture (PNG) export says the same.",
+    "Deleting a concept leaves you on the starting point. The Concepts box used to go blank while the settings on screen still belonged to the concept you had just deleted. It now loads \"design default values\", so what you see is a real, complete set of settings you can build the next concept from."
+  ],
+  "8": [
+    "Saving a concept now tells you when it didn't work. Save writes your concepts file and then reads it back to confirm the change actually arrived; if it didn't, you get a message saying so. Until now a failed save left the concept looking saved for the rest of the session — it kept its graphic, and switched, rendered and exported normally — and the change was only missing the next time you started the app. The concept is now left marked as unsaved so you can try again, and the same check covers creating, renaming and deleting a concept. The app also re-checks a moment after saving and warns you if something outside it — OneDrive syncing your folder, or a second copy of the app open on the same folder — overwrote what you just saved."
+  ],
+  "9": [
+    "You find out about a lost save while you are still working, not at the end. Every save now re-reads your concepts file — before writing, to be sure the file is still the one it last wrote, and again just after — and it re-checks once more a few seconds later and whenever you switch concepts. If anything has rewritten the file behind the app's back (OneDrive syncing your folder, or a second copy of the app open on the same folder), you get a message there and then and the concept goes back to being marked unsaved, so pressing Save again is all it takes. There is nothing new to click and nothing to remember to run.",
+    "A save can no longer wipe out work done in another window. If your concepts file has changed since the app last wrote it, Save stops and tells you instead of overwriting it with what this window happens to be holding."
+  ],
+  "10": [
+    "The app only ever touches \"Bliss Tactile Symbols.json\". You can now keep extra copies of your concepts file in the same folder — \"Bliss Tactile Symbols - Copy.json\", a dated backup, anything — and the app will leave them completely alone. It reads and saves concepts only in the file whose name matches your symbol designer file. Before, the app used whichever .json the folder happened to list first, so a backup copy could quietly become the file your saves went to while the real one never changed — and you would only find out the next time you opened the app. The startup log now names the concepts file it is using and lists any other .json files it is ignoring."
+  ],
+  "12": [
+    "\"Create a graphic\" can now put a past or future indicator over a component, not just a plural one. Each component in the dialog has three tick boxes — ×, past and future — and a component carries one indicator at a time, so ticking one clears the others. The past and future marks are the standard Blissymbolics characters: a shallow bow in the indicator row, curving to the right for past and to the left for future."
+  ],
+  "13": [
+    "\"Remove Bliss Indicators\" no longer removes an indicator you added yourself. It now takes off only the indicator that came built into the BCI graphic, and leaves anything you ticked on in \"Create a graphic\" in place. Before, both were removed together — so if the graphic already carried an indicator, adding your own put two marks in the same spot and then lost them both."
+  ],
+  "14": [
+    "\"Create a graphic\" now deals with the indicators your components were drawn with, so your own indicator no longer lands on top of one. Tick ×, past or future on a component and it replaces that component's built-in indicator rather than sitting on it. There is also a new \"Remove Bliss indicators the components came with\" tick box in the dialog, on by default, which takes them off the other components too. The preview shows exactly what gets saved. Your original symbol files are untouched — the new graphic is saved under its own name."
+  ]
+};
+  // @@RELEASE_NOTES_END@@
+</script>
+<!-- Boot: pull the shared body markup, inject it as body's first children (so
+     <main> stays a direct flex child, which the CSS requires), then load the
+     engine (its top-level DOM wiring runs after the markup exists). -->
+<script type="module">
+  try {
+    const resp = await fetch('../shared/app-body.html');
+    if (!resp.ok) throw new Error('shared/app-body.html → ' + resp.status);
+    document.body.insertAdjacentHTML('afterbegin', await resp.text());
+    await import('../shared/bts-core.js');
+  } catch (e) {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<pre style="padding:16px;color:#c0392b;white-space:pre-wrap">Failed to start the app: '
+      + (e && e.message ? e.message : e) + '</pre>');
+    throw e;
+  }
+</script>
+</body>
+</html>
