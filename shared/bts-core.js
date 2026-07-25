@@ -1862,6 +1862,17 @@ function buildForm(groups){
         // Dragging the slider tracks live in the spinner but only renders on release.
         input.addEventListener('input',  () => { spin.value = fmtStep(+input.value, p.step); });
         input.addEventListener('change', () => commit(+input.value, input));
+        // Track typed digits live so the preset reads dirty (and Save enables) even
+        // before the value is committed on blur/Enter. p.value takes the raw typed
+        // number WITHOUT snapping or reformatting, so mid-keystroke text isn't
+        // clobbered; the 'change' handler below does the final clamp+snap+render.
+        // Without this, typing a new value and clicking Save — when the typed value
+        // was the only change — saved the OLD value: the spinner commits only on
+        // 'change', so Save stayed disabled and p.value never updated.
+        spin.addEventListener('input', () => {
+          const v = parseFloat(spin.value);
+          if (Number.isFinite(v)) { p.value = v; updateDirty(); }
+        });
         // Typed text is only committed on change/blur, so partial entries like
         // "-" or "1." aren't clamped out from under the user mid-keystroke.
         spin.addEventListener('change', () => {

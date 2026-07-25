@@ -9,6 +9,9 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 - When a render fails, the on-screen message now shows what actually went wrong,
   instead of pointing you to a browser console the app doesn't display.
+- Fixed: a number you type into a field and then Save right away is now kept in
+  the saved concept. Before, if the typed value hadn't been confirmed yet (with
+  Enter or Tab) it could be left out of the save.
 
 ## Release 14
 
