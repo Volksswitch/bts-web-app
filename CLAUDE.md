@@ -144,11 +144,15 @@ BTS web app/
 
 - **A few strings are still Symbols-worded in the engine**: the scad-update-modal heading and the
   "Symbol designer update…" log lines. Parameterize when the Tiles `.scad` update flow is exercised.
-- **Tiles `.scad` update flow is set up** (2026-07-24): the Tiles `.scad` carries `scad_version = 1`
-  in its `/*[Hidden]*/` block and `latest_tiles_version.json` (version 1) was created in the scad repo,
-  matching the Symbols manifest format. Both are **local/unpushed** in the scad repo until a `bump btp`
-  push; until then the deployed Tiles app's update check 404s harmlessly. The scad repo's
-  `publish-scad-version.mjs` + `RELEASING.md` may still need extending to handle the second `.scad`.
+- **Tiles `.scad` released + release tooling built (2026-07-24).** The Tiles designer `.scad`
+  (version 1, with the tile-piece-SVG feature) is **pushed to the scad repo's `main`** alongside
+  `latest_tiles_version.json` (version 1), so the deployed Tiles app's update check resolves. The
+  scad repo's tooling now handles **both** designers: `publish-scad-version.mjs` takes `[bts|btp]`
+  (own `scad_version`/changelog/manifest, plus a cross-app pre-bump warning), `TILES-SCAD-CHANGELOG.md`
+  exists, and `RELEASING.md` documents `bump btp` — including the **one-repo/two-version-gated-`.scad`s**
+  rule: releasing one designer must not publish the other's local-only pre-bump (release it underneath,
+  via `git reset --mixed origin/main` then commit only that designer's files). Scad repo currently holds
+  local-only pre-bumps: Symbols `scad_version 4` (manifest 3), Tiles `scad_version 2` (manifest 1).
 - **The Tiles designer `.scad` + a Tiles `.json` must be provisioned into the shared folder** for
   Tiles to render there.
 
