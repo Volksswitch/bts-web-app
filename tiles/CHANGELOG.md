@@ -7,6 +7,11 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 3
+
+- When a render fails, the on-screen message now shows what actually went wrong,
+  instead of pointing you to a browser console the app doesn't display.
+
 ## Release 2
 
 - Tile and puzzle pieces now take their graphics from your SVG files, sized to

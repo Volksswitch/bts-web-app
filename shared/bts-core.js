@@ -2300,9 +2300,13 @@ async function prepareTilePieceSvgs(){
 // Run one OpenSCAD render (fresh WASM instance) and return the STL bytes, or
 // null if the render produced no geometry.
 async function renderOnce(extraArgs){
+  // Collect OpenSCAD's own ERROR: lines so a failed render can report the real
+  // cause in the status pill (the console isn't shown in the app).
+  const errLines = [];
+  const capture = t => { if (/ERROR:/i.test(t)) errLines.push(t.replace(/^ERROR:\s*/i, '').trim()); };
   const oscad = await createOpenSCAD({
-    print:    t => { if (!noise(t)) logLine(t); },
-    printErr: t => { if (!noise(t)) logLine(t); },
+    print:    t => { capture(t); if (!noise(t)) logLine(t); },
+    printErr: t => { capture(t); if (!noise(t)) logLine(t); },
   });
   addFonts(oscad.getInstance());
   const fs = oscad.getInstance().FS;
@@ -2316,7 +2320,7 @@ async function renderOnce(extraArgs){
   }
   const args = ['/bliss.scad', '-o', '/out.stl', '--backend=Manifold', ...dArgs(), ...extraArgs];
   const rc = oscad.getInstance().callMain(args);
-  if (rc !== 0) throw new Error('render returned code ' + rc);
+  if (rc !== 0) throw new Error(errLines.length ? errLines[errLines.length - 1] : 'render returned code ' + rc);
   try { return fs.readFile('/out.stl'); } catch (e) { return null; }
 }
 
@@ -2397,8 +2401,10 @@ async function runRender(){
     document.getElementById('exportStl2Btn').disabled = false;
     document.getElementById('exportPngBtn').disabled = false;
   } catch (e) {
-    logLine('Render error: ' + (e.message || e));
-    setStatus('Render failed — see console', 'err');
+    const detail = (e && (e.message || e.toString())) || 'unknown error';
+    logLine('Render error: ' + detail);
+    // The console isn't shown in the app, so put the actual failure in the pill.
+    setStatus('Render failed: ' + detail, 'err');
   } finally {
     rendering = false;
     if (pending) scheduleRender();

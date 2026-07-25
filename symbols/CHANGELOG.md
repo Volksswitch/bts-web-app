@@ -7,6 +7,9 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- When a render fails, the on-screen message now shows what actually went wrong,
+  instead of pointing you to a browser console the app doesn't display.
+
 ## Release 14
 
 - "Create a graphic" now deals with the indicators your components were drawn

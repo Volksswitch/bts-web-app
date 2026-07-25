@@ -344,6 +344,10 @@
   #statusmsg {
     background: rgba(255,255,255,.9); border: 1px solid var(--line); border-radius: 6px;
     padding: 6px 10px; font-size: 12.5px; pointer-events: auto; color: var(--muted);
+    /* An error can be a long OpenSCAD message; wrap it and cap the height with a
+       scroll rather than let the pill run off the viewport. */
+    max-width: 100%; max-height: 6.5em; overflow-y: auto;
+    white-space: pre-wrap; overflow-wrap: anywhere;
   }
   /* An empty pill would still paint its background + padding as a small
      floating box, so collapse it whenever there's no text (as the keyguard
