@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 4
+
 - Fixed: a number you type into a field and then Save right away is now kept in
   the saved concept. Before, if the typed value hadn't been confirmed yet (with
   Enter or Tab) it could be left out of the save.
