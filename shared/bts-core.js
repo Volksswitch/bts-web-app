@@ -18,8 +18,8 @@ import { addFonts } from '../openscad-wasm/openscad.fonts.js';
 // between them is supplied by the thin shell (symbols/index.html or
 // tiles/index.html) as `window.APP_CONFIG`, set BEFORE this module is imported.
 // The shell's HTML documents each field (appName, scadBaseName, svgOwnDir,
-// svgCreateSources, exportFallback, appRelease, appRepo, appDir, scadRepo,
-// scadManifestFile); nothing else in this file is app-specific.
+// svgPickerDirs, svgCreateSources, exportFallback, appRelease, appRepo, appDir,
+// scadRepo, scadManifestFile); nothing else in this file is app-specific.
 const APP_CONFIG = window.APP_CONFIG;
 if (!APP_CONFIG) throw new Error('APP_CONFIG missing — the shell must set window.APP_CONFIG before importing bts-core.js.');
 
@@ -1066,17 +1066,26 @@ async function loadSvgFile(file){
 // folder's "SVG files" subfolder (read through its FileSystemDirectoryHandle).
 // A compound graphic is just another file here — it was flattened to one .svg by
 // the Create-Graphic dialog, so assigning it is an ordinary single-file load.
-async function loadSvgByName(name){
+async function loadSvgByName(name, srcHandle){
   if (!name) return false;
-  if (!folder || !folder.svgDir) { setStatus(`Open a folder with a “${APP_CONFIG.svgOwnDir}” subfolder first.`, 'err'); return false; }
-  try {
-    const fh = await folder.svgDir.getFileHandle(name + '.svg');
-    return loadSvgText(await (await fh.getFile()).text(), name);
-  } catch (e) {
-    setStatus(`Couldn't load “${name}.svg” from the ${APP_CONFIG.svgOwnDir} folder.`, 'err');
-    logLine(`Load failed: ${name}.svg — ${e.message}`);
-    return false;
+  const sources = (folder && folder.svgPickerSources) || [];
+  const ownFallback = (folder && folder.svgDir) ? [folder.svgDir] : [];
+  // An interactive pick names the folder it came from. A bare reference (a typed
+  // name, or a preset's graphic_svg) searches the picker's source folders in
+  // order — the default/first folder wins on a same-name collision.
+  const tryDirs = srcHandle ? [srcHandle]
+    : (sources.length ? sources.map(s => s.handle) : ownFallback);
+  if (!tryDirs.length) { setStatus(`Open a folder with a “${APP_CONFIG.svgOwnDir}” subfolder first.`, 'err'); return false; }
+  for (const dir of tryDirs){
+    try {
+      const fh = await dir.getFileHandle(name + '.svg');
+      return loadSvgText(await (await fh.getFile()).text(), name);
+    } catch {}
   }
+  const where = sources.length ? sources.map(s => s.name).join('” / “') : APP_CONFIG.svgOwnDir;
+  setStatus(`Couldn't load “${name}.svg” from the “${where}” folder.`, 'err');
+  logLine(`Load failed: ${name}.svg`);
+  return false;
 }
 // Reflect the loaded graphic's name into the graphic_svg param + its text box,
 // without triggering another load.
@@ -1524,6 +1533,23 @@ createOverlay.addEventListener('mousedown', e => { if (e.target === createOverla
 // whatever we ended up with. Prep is unconditional — every graphic the app
 // renders goes through it. Stroke detection runs on the PREPPED svg, since that
 // is what is actually handed to OpenSCAD.
+// Prep an arbitrary SVG's TEXT the same way the main graphic is prepped, returning
+// the prepped text (no module state, no logging). Used for the Tiles designer's
+// per-piece SVGs, which are written to the WASM FS and imported by the .scad.
+// Prep a tile-piece SVG through the same Step-0 pipeline as the Symbols graphic
+// and report the prepped file's mm-per-unit. normalizeUnits pins a file that has
+// a viewBox to 1 mm/unit; a file it can't normalize keeps its own units and we
+// fall back to 1 (mirroring the Symbols path). The .scad derives the raised-graphic
+// scale as band_scale_factor / mmPerUnit, so this is what sets each piece's size.
+function prepSvgText(text){
+  let s = text, mmPerUnit = 1;
+  try { const r = stripIndicators(s); if (r && r.svg) s = r.svg; } catch {}
+  try { const r = fattenStrokes(s);   if (r && r.svg) s = r.svg; } catch {}
+  try { const r = strokeToOutline(s); if (r && r.svg) s = r.svg; } catch {}
+  try { const r = normalizeUnits(s);  if (r && r.svg) { s = r.svg; mmPerUnit = r.mmPerUnit ?? 1; } } catch {}
+  return { text: s, mmPerUnit };
+}
+
 function applyPrep(){
   if (!svgRaw) return;
   {
@@ -1608,6 +1634,28 @@ const APP_MANAGED = new Set(['svg_path', 'svg_mm_per_unit', 'graphic_registratio
 // and params whose `//` comment is developer-facing rather than user-facing.
 const LABELS  = { graphic_svg: 'Graphic File' };
 const NO_DESC = new Set(['graphic_svg']);
+
+// Per-piece SVG references in the Tiles designer: params named tile_piece_svg_N.
+// They STORE a connected-folder-relative path (e.g. "Basic SVG files/foo.svg") but
+// SHOW just the filename ("foo"), and — unlike graphic_svg — do not load into the
+// viewport; the render step preps and writes each referenced SVG. Symbols has no
+// such params, so all of this is inert there.
+const isTilePieceSvg = name => /^tile_piece_svg_\d+$/.test(name);
+const tilePieceLabel = name => { const m = name.match(/^tile_piece_svg_(\d+)$/); return m ? `Tile-Piece SVG ${m[1]}` : null; };
+const svgBaseFromPath = p => String(p || '').replace(/\\/g, '/').replace(/^.*\//, '').replace(/\.svg$/i, '');
+// The picker source folder a chosen handle belongs to (for building the stored path).
+function pickerSourceNameFor(handle){
+  const s = (folder && folder.svgPickerSources || []).find(x => x.handle === handle);
+  return s ? s.name : null;
+}
+// Resolve a bare filename to a "<folder>/<name>.svg" path by finding which picker
+// source folder actually holds it (first match wins).
+async function resolveTilePieceSvg(name){
+  for (const s of (folder && folder.svgPickerSources || [])){
+    try { await s.handle.getFileHandle(name + '.svg'); return `${s.name}/${name}.svg`; } catch {}
+  }
+  return '';
+}
 let PARAMS = [];        // [{name, type:'string'|'number', value, control, options, min, max, step, desc, group, applyUI}]
 let SCAD_TEXT = '';
 // OpenSCAD Customizer presets, read from the sibling "Bliss Tactile Symbols.json"
@@ -1707,7 +1755,7 @@ function buildForm(groups){
       const label = document.createElement('label'); label.className = 'name';
       // The graphic picker gets a plain-English label and no help text — the
       // Open/Change button already says what the field is for.
-      label.textContent = LABELS[p.name] || prettify(p.name); field.appendChild(label);
+      label.textContent = LABELS[p.name] || tilePieceLabel(p.name) || prettify(p.name); field.appendChild(label);
       if (p.desc && !NO_DESC.has(p.name)) { const d = document.createElement('span'); d.className = 'desc'; d.textContent = p.desc; field.appendChild(d); }
       let input;
       if (p.name === 'graphic_svg') {
@@ -1734,7 +1782,37 @@ function buildForm(groups){
           p.value = name; syncBtn();
           if (name) loadSvgByName(name); else clearGraphic();
         });
-        btn.addEventListener('click', () => openSvgPicker(loadSvgByName, input.value.trim()));
+        btn.addEventListener('click', () => openSvgPicker(loadSvgByName, input.value.trim(), folder.svgPickerSources));
+        wrap.appendChild(input); wrap.appendChild(btn); field.appendChild(wrap);
+        body.appendChild(field);
+        return;
+      }
+      if (isTilePieceSvg(p.name)) {
+        // Per-tile-piece SVG: text box + folder-picker button. Stores the
+        // connected-folder-relative path, shows just the filename. Picking (or
+        // typing a valid filename) sets the value and re-renders; the render step
+        // reads/preps/writes the referenced SVG. It never loads into the viewport.
+        const wrap = document.createElement('div'); wrap.className = 'svgpick';
+        input = document.createElement('input'); input.type = 'text';
+        input.autocomplete = 'off'; input.name = p.name + '_' + Math.random().toString(36).slice(2);
+        input.value = svgBaseFromPath(p.value); input.placeholder = 'no file chosen';
+        const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'svgpick-btn';
+        const syncBtn = () => { btn.textContent = input.value.trim() ? 'Change' : 'Open'; };
+        syncBtn();
+        p.applyUI = () => { input.value = svgBaseFromPath(p.value); syncBtn(); };
+        const commit = relpath => { p.value = relpath; input.value = svgBaseFromPath(relpath); syncBtn(); updateDirty(); scheduleRender(); };
+        input.addEventListener('input', syncBtn);
+        input.addEventListener('change', async () => {
+          const typed = input.value.trim();
+          if (!typed) { commit(''); return; }
+          const rel = await resolveTilePieceSvg(typed);
+          if (rel) commit(rel);
+          else { setStatus(`No “${typed}.svg” in the picker folders.`, 'err'); input.value = svgBaseFromPath(p.value); syncBtn(); }
+        });
+        btn.addEventListener('click', () => openSvgPicker((name, srcHandle) => {
+          const dirName = pickerSourceNameFor(srcHandle) || APP_CONFIG.svgOwnDir;
+          commit(name ? `${dirName}/${name}.svg` : '');
+        }, svgBaseFromPath(p.value), folder.svgPickerSources));
         wrap.appendChild(input); wrap.appendChild(btn); field.appendChild(wrap);
         body.appendChild(field);
         return;
@@ -2157,6 +2235,9 @@ function dArgs(){
     const val = p.type === 'string' ? `"${p.value}"` : `${p.value}`;
     args.push('-D', `${p.name}=${val}`);
   }
+  // Tiles: each piece's prepped mm/unit, so the .scad derives its raised-graphic
+  // scale (band_scale_factor / mm/unit) per piece. Empty for Symbols.
+  if (TILE_PIECE_MMPU.length) args.push('-D', `tile_piece_mm_per_unit=[${TILE_PIECE_MMPU.join(',')}]`);
   return args;
 }
 
@@ -2164,6 +2245,49 @@ let renderTimer = null, rendering = false, pending = false;
 function scheduleRender(){ clearTimeout(renderTimer); renderTimer = setTimeout(runRender, 160); }
 
 const noise = t => /ECHO|Compiling|Geometries in cache|rendering time|Top level|Current top level object is empty|Could not initialize localization|CGAL (Polyhedrons|cache)|Geometry cache|Status:\s+NoError|Genus:|Vertices:|Facets:/i.test(t);
+
+// Tile-piece SVGs (Tiles designer): each populated tile_piece_svg_N param names a
+// connected-folder-relative SVG path. Before a render we read + prep them; renderOnce
+// writes each into the fresh WASM FS at the SAME relative path, so the .scad's
+// import(path) finds the prepped version. Always empty for Symbols.
+let TILE_PIECE_FILES = [];
+let TILE_PIECE_MMPU = [];   // slot N-1 = tile_piece_svg_N's prepped mm/unit; passed as -D
+async function readSvgByRelPath(rel){
+  const segs = rel.split('/').filter(Boolean);
+  const file = segs.pop();
+  let dh = folder.dir;
+  for (const seg of segs) dh = await dh.getDirectoryHandle(seg);
+  const fh = await dh.getFileHandle(file);
+  return (await fh.getFile()).text();
+}
+async function prepareTilePieceSvgs(){
+  TILE_PIECE_FILES = [];
+  TILE_PIECE_MMPU = [];
+  if (!folder) return;
+  // Prep each distinct referenced SVG once, then build a slot-indexed mm/unit
+  // array aligned to tile_piece_svg_1..20 (the .scad's tile_piece_svgs order), so
+  // each piece's derived scale (band_scale_factor / mm/unit) is per-piece correct.
+  const cache = new Map();   // rel -> { text, mmPerUnit } | null (read/prep failed)
+  const slots = [];
+  for (const p of PARAMS){
+    const m = p.name.match(/^tile_piece_svg_(\d+)$/);
+    if (!m) continue;
+    const idx = +m[1] - 1;
+    const rel = String(p.value || '').trim();
+    if (!rel) { slots[idx] = 1; continue; }
+    if (!cache.has(rel)){
+      try { cache.set(rel, prepSvgText(await readSvgByRelPath(rel))); }
+      catch (e){ logLine(`Tile-piece graphic "${rel}" could not be read/prepped — ${e.message}`); cache.set(rel, null); }
+    }
+    const prepped = cache.get(rel);
+    slots[idx] = prepped ? prepped.mmPerUnit : 1;
+  }
+  for (const [rel, prepped] of cache){
+    if (prepped) TILE_PIECE_FILES.push({ path: rel, text: prepped.text });
+  }
+  // Only meaningful for Tiles; empty (no slots) for Symbols. Default any gap to 1.
+  if (slots.length) TILE_PIECE_MMPU = Array.from({ length: 20 }, (_, i) => slots[i] ?? 1);
+}
 
 // Run one OpenSCAD render (fresh WASM instance) and return the STL bytes, or
 // null if the render produced no geometry.
@@ -2176,6 +2300,12 @@ async function renderOnce(extraArgs){
   const fs = oscad.getInstance().FS;
   fs.writeFile('/bliss.scad', SCAD_TEXT);
   if (svgText) fs.writeFile('/graphic.svg', svgText);
+  for (const f of TILE_PIECE_FILES){
+    const segs = f.path.split('/').filter(Boolean); segs.pop();
+    let cur = '';
+    for (const seg of segs){ cur += '/' + seg; try { fs.mkdir(cur); } catch {} }
+    fs.writeFile('/' + f.path, f.text);
+  }
   const args = ['/bliss.scad', '-o', '/out.stl', '--backend=Manifold', ...dArgs(), ...extraArgs];
   const rc = oscad.getInstance().callMain(args);
   if (rc !== 0) throw new Error('render returned code ' + rc);
@@ -2242,8 +2372,13 @@ async function runRender(){
     } else {
       conceptWidthOverride = 0;   // no graphic -> fall back to the SCAD default
     }
+    await prepareTilePieceSvgs();   // Tiles: read + prep each referenced piece SVG (no-op for Symbols)
+    // The graphic pass runs whenever there IS a graphic: the Symbols single SVG,
+    // or any Tiles tile-piece SVG. Splitting the two render_parts is what lets the
+    // base and the raised graphic wear different display colours (and export apart).
+    const anyGraphic = !!svgText || TILE_PIECE_FILES.length > 0;
     const symBytes = await renderOnce(['-D', 'render_part="symbol"']);
-    const grBytes  = svgText ? await renderOnce(['-D', 'render_part="graphic"']) : null;
+    const grBytes  = anyGraphic ? await renderOnce(['-D', 'render_part="graphic"']) : null;
     showModel(symBytes, grBytes);
     // The finished render is its own confirmation, so the pill clears rather
     // than reporting a time (#statusmsg:empty collapses it). The timing still
@@ -2376,6 +2511,7 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
   btn.disabled = true; btn.classList.add('active');
   setStatus('Rendering STL for export…', 'busy');
   try {
+    await prepareTilePieceSvgs();   // Tiles: refresh piece SVGs (no-op for Symbols)
     const bytes = await renderOnce(['-D', 'render_part="all"']);   // whole symbol, one solid
     if (!bytes || !bytes.length) throw new Error('export produced no STL');
     const fname = exportBaseName() + '.stl';
@@ -2423,9 +2559,11 @@ document.getElementById('exportStl2Btn').addEventListener('click', async () => {
   btn.disabled = true; btn.classList.add('active');
   setStatus('Rendering two-colour STLs for export…', 'busy');
   try {
+    await prepareTilePieceSvgs();   // Tiles: refresh piece SVGs (no-op for Symbols)
     // Nothing to split without a graphic — the merged STL is already the whole
-    // model, so say so rather than writing an identical pair of files.
-    if (!svgText){
+    // model, so say so rather than writing an identical pair of files. A graphic
+    // is the Symbols single SVG or any Tiles tile-piece SVG.
+    if (!svgText && TILE_PIECE_FILES.length === 0){
       setStatus('Load a graphic first — with no graphic there is only one part.', 'err');
       return;
     }
@@ -2679,12 +2817,16 @@ async function loadFromFolder(dir){
   }
   if (!scadHandle) throw new Error(`That folder has no ${APP_CONFIG.scadBaseName}.scad file.`);
 
-  // SVG folders. svgDir is the app's OWN folder (svgOwnDir): the Graphic File
-  // picker, component reads and preset `graphic_svg` references all resolve here
-  // and nowhere else, and Create-Graphic saves here. svgCreateSources is every
-  // configured Create-Graphic source folder that is actually present, in config
-  // order (own folder first) — one entry means no folder selector, two means A/B.
+  // SVG folders. svgDir is the app's OWN folder (svgOwnDir) — where Create-Graphic
+  // saves. svgPickerSources is the folders the Graphic File picker reads, from
+  // APP_CONFIG.svgPickerDirs (default just [svgOwnDir]); the first is the default
+  // when the picker opens, a selector appears when more than one is present, and
+  // bare graphic_svg references resolve across them in order. svgCreateSources is
+  // every configured Create-Graphic source folder present, own folder first.
   let svgDir = dirByLc.get(APP_CONFIG.svgOwnDir.toLowerCase()) || null;
+  const svgPickerSources = (APP_CONFIG.svgPickerDirs || [APP_CONFIG.svgOwnDir])
+    .map(n => ({ name: n, handle: dirByLc.get(n.toLowerCase()) || null }))
+    .filter(e => e.handle);
   const svgCreateSources = APP_CONFIG.svgCreateSources
     .map(n => ({ name: n, handle: dirByLc.get(n.toLowerCase()) || null }))
     .filter(e => e.handle)
@@ -2706,7 +2848,7 @@ async function loadFromFolder(dir){
       if (parsed.fileFormatVersion != null) presetFileFormatVersion = parsed.fileFormatVersion;
     } catch (e){ logLine('JSON parse failed: ' + e.message); presets = null; }
   }
-  folder = { dir, scadHandle, scadName, jsonHandle, jsonName, svgDir, svgCreateSources };
+  folder = { dir, scadHandle, scadName, jsonHandle, jsonName, svgDir, svgPickerSources, svgCreateSources };
   SCAD_TEXT = scadText;
   PRESETS = presets;
   SVG_LIST = null;                 // drop the previous folder's listing

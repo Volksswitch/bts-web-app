@@ -31,10 +31,11 @@
     appName:          'Bliss Tiles and Puzzles',
     folderName:       'Bliss Tactile Symbols',                 // the shared connected folder (both apps use it)
     scadBaseName:     'Bliss Tiles and Puzzles',               // the designer .scad this app owns
-    svgOwnDir:        'Basic SVG files',                       // Tiles' own SVG folder
+    svgOwnDir:        'Basic SVG files',                       // Tiles' own SVG folder (Create-Graphic saves here)
+    svgPickerDirs:    ['Basic SVG files', 'Puzzle SVG files'], // Graphic File picker reads these (Basic = default)
     svgCreateSources: ['Bliss SVG files', 'Basic SVG files'],  // A/B sources (own sorted first at runtime)
     exportFallback:   'bliss-tile',                            // last-resort export name (no preset/graphic)
-    appRelease:       1,
+    appRelease:       2,
     appRepo:          'Volksswitch/bliss-tactile-symbols-web', // same repo as Symbols
     appDir:           'tiles',
     scadRepo:         'Volksswitch/bliss-tactile-symbols',     // same repo, separate manifest ↓
@@ -46,6 +47,10 @@
   window.APP_CONFIG.releaseNotes = {
   "1": [
     "First release of the Bliss Tiles and Puzzles web app. Build remedial and motivational tools for your Bliss Tactile Symbols — turn a prepped Blissymbol SVG into a 3D-printable tile or puzzle piece entirely in Chrome or Edge, with no OpenSCAD install and no command line."
+  ],
+  "2": [
+    "Tile and puzzle pieces now take their graphics from your SVG files, sized to match how the same graphic appears on a Bliss Tactile Symbol — a graphic at 100% prints at that official size.",
+    "New two-color export: you can save the base and its raised graphic as separate files (… - body.stl / … - graphic.stl) for a multi-material printer or a mid-print filament swap, and the raised graphic now shows in its own color in the preview."
   ]
 };
   // @@RELEASE_NOTES_END@@

@@ -45,10 +45,17 @@ nothing is app-specific code. Decisions Ken made setting this up:
   provisioning-bundle change (nothing is public yet). `APP_CONFIG.svgOwnDir` is the app's own folder
   (Symbols `Bliss SVG files`, Tiles `Basic SVG files`); `APP_CONFIG.svgCreateSources` is the ordered
   candidate list `['Bliss SVG files','Basic SVG files']` (same for both apps, own folder first).
-  - **Assigned / referenced graphics resolve against the app's OWN folder only.** The Graphic File
-    picker and a preset's `graphic_svg` are bare base names with no folder recorded, so they resolve
-    against `svgOwnDir` and nothing else — Symbols reads/references `Bliss SVG files`, Tiles `Basic
-    SVG files`. That picker has **no** folder selector.
+  - **The Graphic File picker reads `APP_CONFIG.svgPickerDirs`** (ordered; first = default when the
+    picker opens). Symbols leaves it unset → the engine defaults to `[svgOwnDir]` = `['Bliss SVG
+    files']` (single folder, no selector, behaves as before). **Tiles sets it to `['Basic SVG
+    files','Puzzle SVG files']`** (Ken, 2026-07-24) — so the Tiles picker shows the same A/B folder
+    selector Create-Graphic uses, defaulting to `Basic SVG files`, with a new **`Puzzle SVG files`**
+    folder as the second source. A folder present in the list but missing on disk is dropped, so the
+    selector only appears when ≥2 are present. `Puzzle SVG files` is a new provisioning subfolder.
+  - **Bare `graphic_svg` references resolve across `svgPickerDirs` in order** (default folder first
+    on a same-name collision). An interactive pick loads from the folder selected in the picker; a
+    typed name or a preset's `graphic_svg` searches the picker's folders. (This relaxes the earlier
+    "own folder only" rule, which Tiles' two-folder picker supersedes.)
   - **Create-Graphic "+ Add symbol" may source a component from EITHER folder.** An A/B selector
     appears in the Create-Graphic dialog **only when both folders are present** (otherwise the one
     present folder is used silently). The component's shape is **baked into the composite**, so the
@@ -56,7 +63,8 @@ nothing is app-specific code. Decisions Ken made setting this up:
     and is thereafter referenceable on the normal path.
 - **Both apps connect to the SAME folder — named `Bliss Tactile Symbols` (Ken, 2026-07-24).** One
   provisioning folder holds *both* apps' files: `Bliss Tactile Symbols.scad` + `Bliss Tiles and
-  Puzzles.scad`, both `.json`s, and both SVG folders (`Bliss SVG files` + `Basic SVG files`). So the
+  Puzzles.scad`, both `.json`s, and the SVG folders (`Bliss SVG files`, `Basic SVG files`, and
+  `Puzzle SVG files`). So the
   gate **title** ("Open your … folder") names this shared folder for both apps — driven by
   `APP_CONFIG.folderName` (`'Bliss Tactile Symbols'` in *both* shells) — while the gate **message**
   stays per-app (each app states the `.scad`/SVG folder *it* needs, from `scadBaseName`/`svgOwnDir`).
@@ -143,6 +151,56 @@ BTS web app/
   `publish-scad-version.mjs` + `RELEASING.md` may still need extending to handle the second `.scad`.
 - **The Tiles designer `.scad` + a Tiles `.json` must be provisioned into the shared folder** for
   Tiles to render there.
+
+### Tiles "tile-piece SVG" feature — IN PROGRESS (uncommitted, 2026-07-24)
+
+Replaces the Tiles designer's three per-piece STL-folder refs (`core_concept_N` /
+`beyond_core_concept_N` / `basic_shape_N`) with ONE **`tile_piece_svg_N`** that stores a
+connected-folder-relative SVG path; the web app preps each referenced SVG and writes it into the
+WASM FS at that path, and the `.scad` `import`s + extrudes it as a raised graphic. **All local,
+nothing committed/deployed.**
+
+- **Phase A — `.scad`** (BOTH copies: the scad repo *and* the connected folder
+  `…/Desktop/Bliss Tactile Symbols/`): 60→20 params, single `tile_piece_svgs` array, new
+  `tile_piece_graphic(path)` extrude module, all 7 geometry sites rewired. Parses clean for every
+  `part_to_print`. ⚠️ `.scad` is CRLF + tab-indented — script edits with `perl`.
+- **Phase B — `shared/bts-core.js`**: `tile_piece_svg_N` pickers (helpers `isTilePieceSvg`,
+  `tilePieceLabel`, `svgBaseFromPath`, `pickerSourceNameFor`, `resolveTilePieceSvg`; a `buildForm`
+  branch; per-app **`svgPickerDirs`** — Tiles reads `['Basic SVG files','Puzzle SVG files']`, Basic
+  default). Render: `prepSvgText()`, `prepareTilePieceSvgs()` / `readSvgByRelPath()` /
+  `TILE_PIECE_FILES`, `renderOnce` writes them into the FS, `runRender` awaits the prep.
+- **Phase C — JSON migrated** (connected folder's `Bliss Tiles and Puzzles.json`): 55 presets, 382
+  values; `core`/`beyond` → `Puzzle SVG files/<name>.svg`, `basic` → `Basic SVG files/<name>.svg`.
+- **DONE — the raised-graphic scale is the band scale, DERIVED per piece (Ken, 2026-07-24).** The
+  fitted `tile_piece_scale = 0.1655` constant is gone. `tile_piece_graphic(path, mm_per_unit)` now
+  computes `sc = band_scale_factor / mm_per_unit` with **`band_scale_factor = 0.1875`** — exactly the
+  Symbols graphic's mapping (the 128-unit sky→earth band, y 130..258, → 24 mm). The web app preps each
+  piece SVG (`prepSvgText` now returns `{text, mmPerUnit}`; `normalizeUnits` pins any viewBox SVG to
+  1 mm/unit) and passes a per-piece `-D tile_piece_mm_per_unit=[…]` (20-slot, aligned to
+  `tile_piece_svg_1..20`), so the effective scale is a flat 0.1875 for every real Bliss SVG.
+  **Ken's ruling: the official scaling is how a graphic appears on a Bliss Tactile Symbol** — a 100%
+  puzzle graphic must equal the same graphic on a symbol. That is the band scale, full stop.
+  - **The old baked `beyond core concepts` library is ~11.8% SMALLER** than the band scale (its
+    effective scale ≈ 0.1655; 0.1875/0.1655 = 1.133). Measured from ground truth: `target bear.stl`
+    (baked import) graphic outline 54.5×23.0 mm vs the band render 61.9×26.1 mm (uniform 1.133×). So
+    the derived scale does **not** reproduce the baked STLs — the baked library predates the band-scale
+    rework, and a 100% puzzle graphic is now ~13% larger than before but matches the symbol. Ken
+    accepted this. Verified in desktop OpenSCAD with a 100-unit square: `mm_per_unit=1` → 18.75 mm,
+    `=2` → 9.375 mm (`scratchpad/stlbbox.mjs` measures the raised-graphic bbox via a z-threshold).
+- **DONE — two-color Tiles render (render-part split) (2026-07-24).** The Tiles `.scad` gained
+  `render_part` ("all"=base+graphics [standalone default], "symbol"=base only, "graphic"=raised
+  graphics only), gated by `draw_base`/`draw_graphics` flags across all four `part_to_print` branches
+  — so "all" stays byte-identical to before. Verified the decomposition on a puzzle piece: `symbol`
+  is the bare slab, `graphic` is the raised solid (trimmed at the base bottom to match `all`), and
+  their union is `all`. The web app now fires the graphic pass whenever there is a graphic (Symbols'
+  single SVG **or** any Tiles tile-piece SVG: `anyGraphic = !!svgText || TILE_PIECE_FILES.length`), so
+  the base and raised graphic wear different display colors and the two-color STL export (`- body.stl`
+  / `- graphic.stl`) works for Tiles. Both exports call `prepareTilePieceSvgs()` first.
+  - **Ken's acceptance test (pending):** export the raised graphic **alone** from both apps and confirm
+    the two are the same size in the slicer. Reuses the same tokens as Symbols, so no app render-token
+    changes were needed — only the Tiles-aware `anyGraphic` gate.
+  - ⚠️ Both `.scad` copies were re-saved as clean CRLF (an earlier scripted edit had left one stray
+    LF-only line ending); they are byte-identical to each other.
 
 The sections below describe the Symbols app's behavior — now the shared engine's behavior; file/line
 references predating the extraction point into what is now `shared/bts-core.js`.
