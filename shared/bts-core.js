@@ -23,6 +23,12 @@ import { addFonts } from '../openscad-wasm/openscad.fonts.js';
 const APP_CONFIG = window.APP_CONFIG;
 if (!APP_CONFIG) throw new Error('APP_CONFIG missing — the shell must set window.APP_CONFIG before importing bts-core.js.');
 
+// Human label for the designer .scad, mid-sentence lowercase ("symbol designer" /
+// "tile & puzzle designer"); capFirst() capitalizes it at a sentence start. Used in
+// the .scad-update modal + log lines below, which are otherwise identical per app.
+const DESIGNER = APP_CONFIG.designerLabel || 'designer';
+const capFirst = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+
 // The two apps share app-body.html, so app-specific text can't be literal in the
 // markup — fill it here from APP_CONFIG. (Trusted config values, so innerHTML is
 // safe.) Settings "About" labels and the "What's new" body are filled elsewhere.
@@ -36,6 +42,8 @@ if (!APP_CONFIG) throw new Error('APP_CONFIG missing — the shell must set wind
     + `<b>.json</b>, and the <b>${APP_CONFIG.svgOwnDir}</b> folder. The app remembers it next time.`;
   const wt = document.getElementById('whatsnewTitle');
   if (wt) wt.textContent = `What’s new in ${APP_CONFIG.appName}`;
+  const st = document.getElementById('scadUpdateTitle');
+  if (st) st.textContent = `${capFirst(DESIGNER)} update available`;
 })();
 
 const APP_RELEASE = APP_CONFIG.appRelease;
@@ -47,9 +55,9 @@ const APP_RELEASE = APP_CONFIG.appRelease;
 const APP_REPO = APP_CONFIG.appRepo;
 const APP_MANIFEST_URL = `https://raw.githubusercontent.com/${APP_REPO}/main/${APP_CONFIG.appDir}/latest_app_version.json`;
 
-// SCAD-file update (parallel to the app self-update, but for the symbol designer
-// .scad the user carries in their connected folder). The canonical .scad + its
-// manifest live in a SEPARATE repo (Volksswitch/bliss-tactile-symbols) so the
+// SCAD-file update (parallel to the app self-update, but for the designer .scad
+// this app owns — the one the user carries in their connected folder). The
+// canonical .scad + its manifest live in a SEPARATE repo (scadRepo) so the
 // .scad releases INDEPENDENTLY of the web app — a .scad publish never redeploys
 // the app, and an app release never touches the .scad. The manifest names the
 // latest `scad_version` and where to download the matching .scad; when the user's
@@ -213,10 +221,10 @@ function maybeShowWhatsNew(){
   if (groups.length) showWhatsNewModal(groups);
 }
 
-// ===== SCAD-file update (the symbol designer .scad in the user's folder) =====
-// The user carries a local copy of "Bliss Tactile Symbols.scad" in their
-// connected folder. When a newer version is published (its scad_version bumped +
-// latest_scad_version.json updated), the app offers to download it and overwrite
+// ===== SCAD-file update (this app's designer .scad in the user's folder) =====
+// The user carries a local copy of this app's designer .scad (scadBaseName) in
+// their connected folder. When a newer version is published (its scad_version
+// bumped + its manifest updated), the app offers to download it and overwrite
 // the local copy IN PLACE — the filename is stable (no version in the name), so
 // the .json presets beside it carry forward untouched. Any fetch failure
 // (offline / github blocked) is a silent no-op — the user is never blocked from
@@ -257,9 +265,9 @@ async function checkForScadUpdate(){
     await applyScadUpdate(manifest);
   } else if (choice === 'snooze'){
     setScadSnooze({ until: Date.now() + SCAD_SNOOZE_MS, forVersion: latest });
-    logLine(`Symbol designer update to v${latest} postponed for one week.`);
+    logLine(`${capFirst(DESIGNER)} update to v${latest} postponed for one week.`);
   } else {
-    logLine(`Symbol designer update to v${latest} skipped — you'll be reminded next time you open the folder.`);
+    logLine(`${capFirst(DESIGNER)} update to v${latest} skipped — you'll be reminded next time you open the folder.`);
   }
 }
 
@@ -268,7 +276,7 @@ async function checkForScadUpdate(){
 // happen BEFORE any write, so any failure leaves the user's files untouched.
 async function applyScadUpdate(manifest){
   const dir = folder.dir, scadName = folder.scadName;
-  setStatus('Updating symbol designer…', 'busy');
+  setStatus(`Updating ${DESIGNER}…`, 'busy');
   logLine(`Updating "${scadName}" to v${manifest.version}…`);
 
   let bytes;
@@ -316,7 +324,7 @@ function showScadUpdateModal({ loaded, latest, notes, scadName }){
     const p1 = document.createElement('div');
     const a = document.createElement('b'); a.textContent = 'v' + loaded;
     const b = document.createElement('b'); b.textContent = 'v' + latest;
-    p1.append('Your symbol designer file is ', a, '. Version ', b, ' is now available.');
+    p1.append(`Your ${DESIGNER} file is `, a, '. Version ', b, ' is now available.');
     msg.appendChild(p1);
 
     const noteItems = Array.isArray(notes) ? notes.filter(Boolean) : (notes ? [notes] : []);
@@ -2860,7 +2868,7 @@ async function loadFromFolder(dir){
   logLine(`Connected folder: ${dir.name}`);
   logVersionBanner();
   const sv = parseScadVersion(SCAD_TEXT);
-  logLine(`Symbol designer file "${scadName}" — version ${sv != null ? sv : 'unknown'}`);
+  logLine(`${capFirst(DESIGNER)} file "${scadName}" — version ${sv != null ? sv : 'unknown'}`);
   logLine(jsonHandle
     ? `Concepts file: "${jsonName}" (${Object.keys(presets || {}).length} concept(s)).`
     : `No "${jsonName}" in this folder yet — it will be created when you first save a concept.`);

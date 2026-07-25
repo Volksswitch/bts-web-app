@@ -142,8 +142,11 @@ BTS web app/
 
 ### Phase 2 — still open
 
-- **A few strings are still Symbols-worded in the engine**: the scad-update-modal heading and the
-  "Symbol designer update…" log lines. Parameterize when the Tiles `.scad` update flow is exercised.
+- **Scad-update strings are parametrized (done 2026-07-24).** The `.scad`-update modal heading, its
+  body ("Your … file is v…"), the "Updating …" status, and the snooze/skip/version log lines now read
+  `APP_CONFIG.designerLabel` (Symbols `'symbol designer'`, Tiles `'tile & puzzle designer'`;
+  `capFirst()` capitalizes at sentence starts). The shared `#scadUpdateTitle` heading is filled at boot
+  by `applyAppIdentity()`, same as the gate title. Verified both apps render their own wording.
 - **Tiles `.scad` released + release tooling built (2026-07-24).** The Tiles designer `.scad`
   (version 1, with the tile-piece-SVG feature) is **pushed to the scad repo's `main`** alongside
   `latest_tiles_version.json` (version 1), so the deployed Tiles app's update check resolves. The

@@ -211,10 +211,11 @@
   </div>
 </div>
 
-<!-- Offered when the folder's symbol designer .scad is behind the published version. -->
+<!-- Offered when the folder's designer .scad is behind the published version.
+     The heading is filled per-app at boot by applyAppIdentity(). -->
 <div id="scadUpdateOverlay" class="gate-overlay" hidden>
   <div class="whatsnew-card">
-    <h2>Symbol designer update available</h2>
+    <h2 id="scadUpdateTitle"></h2>
     <div id="scadUpdateMsg"></div>
     <div class="whatsnew-foot su-foot">
       <button id="scadUpdateSkip" type="button">Skip</button>
