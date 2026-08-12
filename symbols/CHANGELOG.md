@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 17
+
 - "Create a graphic" can now stack components as well as place them side by side.
   Tick "over" on a component and it is superimposed on the one to its left instead
   of sitting next to it — centered on it, and keeping its own height on the Bliss
