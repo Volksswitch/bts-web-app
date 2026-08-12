@@ -77,6 +77,15 @@ pre-bump lives **locally only (unpushed)**. **`CACHE_NAME` and `latest_app_versi
 NOT pre-bumped** — they move only during that app's release ritual. All numbers only ever
 **increase.**
 
+⚠️ **"Locally only" is aspirational for the app you are NOT releasing.** There is one branch and
+one push, so releasing app A also deploys app B's pre-bumped `appRelease` — B's users end up
+running a number one ahead of B's manifest. That is harmless for updating (B's manifest hasn't
+moved, so no update is offered), but it used to be *silently destructive* for B's next "What's
+new": `maybeShowWhatsNew` advanced the last-seen record to that empty pre-bump number, so when
+that release really shipped its notes were already marked read. Fixed 2026-08-11 — the record now
+only advances when there was something to show. Don't reintroduce an unconditional
+`setLastSeenRelease` in that path.
+
 ## Releasing — trigger phrases
 
 Four release streams (two apps + two designer `.scad`s), **`bts` = Bliss Tactile Symbols,
