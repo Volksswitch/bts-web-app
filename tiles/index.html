@@ -34,6 +34,8 @@
     svgOwnDir:        'Basic SVG files',                       // Tiles' own SVG folder (Create-Graphic saves here)
     svgPickerDirs:    ['Basic SVG files', 'Puzzle SVG files'], // Graphic File picker reads these (Basic = default)
     svgCreateSources: ['Bliss SVG files', 'Basic SVG files'],  // A/B sources (own sorted first at runtime)
+    svgSplitSourceDirs: ['Bliss SVG files'],                   // Split-Graphic reads whole symbols from here
+    svgSplitDestDirs: ['Basic SVG files', 'Puzzle SVG files'], // …and saves the components into one of these
     exportFallback:   'bliss-tile',                            // last-resort export name (no preset/graphic)
     appRelease:       5,
     appRepo:          'Volksswitch/bliss-tactile-symbols-web', // same repo as Symbols
@@ -58,6 +60,9 @@
   ],
   "4": [
     "Fixed: a number you type into a field and then Save right away is now kept in the saved concept. Before, if the typed value hadn't been confirmed yet (with Enter or Tab) it could be left out of the save."
+  ],
+  "5": [
+    "New: split a Blissymbol into its components, each saved as its own SVG — the building blocks for a tile set. Choose a symbol from your Bliss SVG files folder and the app offers it broken down in levels: the whole symbol, its separate strokes and shapes, and one level further down (a circle's four arcs, a shape's individual lines). Tick the pieces you want, name them, and save them into Basic SVG files or Puzzle SVG files. \"eye\" comes apart into a circle, a dot and four arcs. Each piece keeps its place on the Bliss guidelines, so it prints at the size that part has on the whole symbol and a set of pieces fits back together."
   ]
 };
   // @@RELEASE_NOTES_END@@

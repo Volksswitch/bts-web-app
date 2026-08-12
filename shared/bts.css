@@ -169,6 +169,52 @@
   .create-save { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .create-save:disabled { opacity: .45; border-color: var(--line); color: var(--muted); }
 
+  /* Split-Graphic dialog — reuses the Create-Graphic frame (.create-*), so only
+     the component list and its rows need styles of their own. */
+  #splitOverlay {
+    position: fixed; inset: 0; z-index: 60; background: rgba(20,28,38,.34);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #splitOverlay[hidden] { display: none; }
+  #splitModal {
+    width: 820px; max-width: 96vw; max-height: 90vh; display: flex; flex-direction: column;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(20,28,38,.28); overflow: hidden;
+  }
+  .split-srcrow { display: flex; align-items: center; gap: 8px; }
+  .split-srcname { font-size: 13px; color: var(--text); flex: 1 1 auto; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .split-dest { display: flex; flex-wrap: wrap; gap: 6px; }
+  .split-list {
+    flex: 1 1 auto; overflow-y: auto; min-height: 300px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
+  }
+  .split-lvl {
+    display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+    background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0;
+  }
+  .split-lvl button { margin-left: auto; font-size: 11px; text-transform: none; letter-spacing: 0; }
+  .split-row {
+    display: flex; align-items: center; gap: 8px; padding: 4px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .split-row:last-child { border-bottom: none; }
+  .split-row input[type=checkbox] { margin: 0; flex: 0 0 auto; }
+  .split-thumb {
+    flex: 0 0 34px; width: 34px; height: 44px; background: #fff;
+    border: 1px solid var(--line); border-radius: 3px;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .split-thumb svg { max-width: 100%; max-height: 100%; }
+  .split-label { flex: 0 0 130px; font-size: 12px; color: var(--muted); }
+  .split-name {
+    flex: 1 1 auto; min-width: 0; font-family: inherit; font-size: 12px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px;
+  }
+  .split-name:focus { outline: none; border-color: var(--accent); }
+  .split-count { font-size: 12px; color: var(--muted); }
+
   /* SVG folder picker (modal) */
   .picker-overlay {
     position: fixed; inset: 0; z-index: 90; background: rgba(20,28,38,.34);

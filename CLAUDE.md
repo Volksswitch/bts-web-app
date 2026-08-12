@@ -551,6 +551,54 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   - Test hooks: `window.__composeCompound`, `window.__loadFromFolder` (drive the whole UI with a mock
     directory handle — the automated in-app browser can't operate the OS folder-picker dialog, so this
     is how the dialog is verified headlessly end-to-end).
+- **Split-Graphic dialog — decomposing a symbol into components (Ken, 2026-08-11):** a
+  `#splitGraphicBtn` in the viewport toolbar (just left of Create-Graphic) opens `#splitOverlay`,
+  which takes **one** on-matrix symbol and writes its components out as **separate `.svg` files** —
+  the raw material for a tile set built from a Blissymbol's parts. It is the inverse of
+  Create-Graphic and reuses that dialog's frame (`.create-*` classes) and the ordinary Graphic File
+  picker for choosing the source symbol.
+  - **Decomposition happens in LEVELS, and the output is the union across them.** Level 0 = the
+    whole symbol; level 1 = the drawing primitives as authored; level 2 = sub-primitive geometry (a
+    circle's four arcs, a path's segments). `eye.svg` (a circle + a dot) therefore gives **circle,
+    dot, and four arcs = the six components Ken specified**, plus the whole symbol when that box is
+    ticked. `arm.svg` (two lines) stops at level 1 with two pieces.
+  - **A straight line and a Bliss dot are ATOMIC** — no level 2. This is why `arm` comes out as
+    exactly two files and why the dot is written once rather than appearing at both levels.
+  - **One primitive = one piece is the DEFAULT; connected ink = one piece is an option.** "Join
+    touching strokes into one piece" (`opts.merge`) is off by default because `arm`'s two lines meet
+    at (10,194) — merging would fuse precisely the two components that must stay apart. Its real use
+    is a **raw BSI file whose circle is drawn as four loose arcs**: merging rebuilds the circle at
+    level 1 and the four arcs reappear beneath it at level 2, which is the same six pieces reached
+    from the opposite direction. Verified both ways.
+  - **Circles are cut at the CARDINAL points** (12/3/6/9 o'clock), so arc 1 is the upper-right
+    quadrant and they run clockwise; "Cut circles at the diagonals" switches to a top/right/bottom/
+    left set. **Half-arcs are opt-in, not a standing level** — ticking "Add half-arcs as well as
+    quarters" adds an upper and a lower half alongside the quarters (cut at 9 and 3, which is the
+    pairing Bliss uses: a mouth, a container). **"Include the whole symbol" defaults ON**, so `eye`
+    yields 7 files out of the box; untick it for Ken's 6.
+  - **Every piece keeps the source's viewBox and its original coordinates** — nothing is re-centered
+    or re-scaled. So a piece flows through the normal Step-0 prep (`stripIndicators` → `fattenStrokes`
+    → `strokeToOutline` → `normalizeUnits`) exactly like any BCI export and, via the band scale,
+    prints at the size and place that component occupies on the whole symbol; a set of pieces
+    reassembles into the symbol with no fitting. Arcs are emitted as **open `<path d="M… A…">`**
+    carrying the source's `class`/paint, which `strokeToOutline` traces correctly (OpenSCAD's own
+    importer would fill an open arc as a chord region — see the stroke-to-outline notes).
+    Verified: `eye`'s arc 1 spans exactly the circle's upper-right quadrant, and after prep its ink
+    bbox is that quadrant grown by half the fattened stroke.
+  - **Folders are per-app** (`APP_CONFIG.svgSplitSourceDirs` / `svgSplitDestDirs`): Tiles reads whole
+    symbols from **`Bliss SVG files`** and offers **`Basic SVG files`** or **`Puzzle SVG files`** as
+    the save destination (Ken, 2026-08-11). Sources must exist to be offered; a **destination is
+    offered whether or not it exists** and is created on save, as Create-Graphic creates its own
+    folder. Symbols configures neither, so **the button is hidden there** — no app-specific code, just
+    absent config.
+  - Each row carries a checkbox, a thumbnail showing the piece over a faint copy of the whole symbol,
+    and an editable file name. Default names are `<base> - <kind>`, numbered by the label's **stem**
+    when a kind repeats (`arm - line 1` / `arm - line 2`) — several elements can each produce their
+    own "line 1", and numbering the full label would read as "line 1 2". Editing the base name
+    re-derives every row. One overwrite confirmation covers the whole set, not one prompt per file.
+  - Test hooks: `window.__splitGraphic(text, opts)` (headless: returns `{pieces, warnings}`) and
+    `window.__absSegments(d)` (the path-segment splitter, which resolves relative commands, expands
+    the smooth forms S/T, and closes Z).
 - **SVG input:** the Graphic Info picker, or drag-and-drop onto the viewport. `parseStrokeWidth()`
   finds the dominant stroke-width. No SVG loaded → renders the bare symbol body.
 - **Header:** title + **Export STL**, nothing else. The folder is opened once through the launch gate

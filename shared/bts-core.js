@@ -1256,6 +1256,375 @@ function composeCompound(parts, opts = {}){
   }
 }
 
+// ---- Graphic decomposition (Split-Graphic dialog) ---------------------------
+// The inverse of composeCompound: take ONE on-matrix symbol and break it into
+// its components, each written out as its own .svg — the raw material for a tile
+// set built from a Blissymbol's parts (Ken, 2026-08-11).
+//
+// Decomposition happens in LEVELS, and the output is the union across them:
+//   level 0  the whole symbol
+//   level 1  the drawing primitives, as authored
+//   level 2  sub-primitive geometry — a circle's four arcs, a path's segments
+// "eye" (a circle + a dot) therefore gives circle, dot, and the circle's four
+// arcs = the six components Ken asked for, plus the whole symbol if that box is
+// ticked. "arm" (two lines) stops at level 1 with two pieces: a straight line has
+// no natural sub-parts, so it is atomic and contributes nothing further.
+//
+// Two rules that look interchangeable but are not:
+//   - ONE PRIMITIVE = ONE PIECE is the default. It is what makes "arm" come out
+//     as two lines rather than one shape.
+//   - CONNECTED INK = ONE PIECE (opts.merge) is offered as an option, not the
+//     default: "arm"'s two lines meet at (10,194), so merging would fuse exactly
+//     the two components we want kept apart. Its real use is the RAW BSI file
+//     whose circle is drawn as four separate arcs — there merging rebuilds the
+//     circle at level 1 and the four arcs reappear beneath it at level 2, which
+//     is the same six pieces arrived at from the opposite direction.
+//
+// Every piece keeps the source's viewBox and its original coordinates: nothing is
+// re-centred or re-scaled. So each piece flows through the normal Step-0 prep on
+// the way to the printer and lands at exactly the size and place that component
+// occupies on the whole symbol (the band scale), and a set of pieces reassembles
+// into the symbol with no fitting.
+
+// Argument counts per path command; the key is the uppercase (absolute) form.
+const SEG_ARGS = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7, Z: 0 };
+const PATH_TOKEN = /([MmLlHhVvCcSsQqTtAaZz])|(-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)/g;
+
+// Tokenise a `d` attribute into { cmd, args }, expanding implicit repeats (a
+// command letter followed by several argument groups). A repeated M means L,
+// which is what SVG says and what a naive splitter gets wrong.
+function parsePathD(d){
+  const toks = String(d || '').match(PATH_TOKEN) || [];
+  const out = [];
+  let i = 0, cmd = null;
+  while (i < toks.length){
+    if (/[A-Za-z]/.test(toks[i])) cmd = toks[i++];
+    else if (cmd === 'M') cmd = 'L';
+    else if (cmd === 'm') cmd = 'l';
+    else if (!cmd || cmd === 'Z' || cmd === 'z') break;   // numbers with nothing to attach to
+    const n = SEG_ARGS[cmd.toUpperCase()];
+    if (n == null || i + n > toks.length) break;
+    const args = [];
+    for (let k = 0; k < n; k++){
+      const v = parseFloat(toks[i++]);
+      if (!isFinite(v)) return out;
+      args.push(v);
+    }
+    out.push({ cmd, args });
+  }
+  return out;
+}
+
+// Walk a `d` and return one ABSOLUTE, self-contained path per segment:
+// { d, sub } where `d` is "M <segment start> <one absolute command>" and `sub` is
+// the index of the subpath the segment belongs to. Relative commands are
+// resolved, and the smooth forms (S/T) are expanded to C/Q — a lone segment has
+// no predecessor to infer its reflected control point from.
+function absSegments(d){
+  const segs = parsePathD(d);
+  const out = [];
+  let cx = 0, cy = 0, sx = 0, sy = 0, px = null, py = null, prev = null, sub = -1;
+  for (const s of segs){
+    const U = s.cmd.toUpperCase(), rel = s.cmd !== U, a = s.args;
+    const ax = v => rel ? cx + v : v, ay = v => rel ? cy + v : v;
+    let body = null, nx = cx, ny = cy, ctrl = null;
+    switch (U){
+      case 'M':
+        cx = ax(a[0]); cy = ay(a[1]); sx = cx; sy = cy;
+        prev = 'M'; px = py = null; sub++;
+        continue;
+      case 'L': nx = ax(a[0]); ny = ay(a[1]); body = `L ${fmt(nx)},${fmt(ny)}`; break;
+      case 'H': nx = ax(a[0]);               body = `L ${fmt(nx)},${fmt(ny)}`; break;
+      case 'V': ny = ay(a[0]);               body = `L ${fmt(nx)},${fmt(ny)}`; break;
+      case 'C': {
+        const x1 = ax(a[0]), y1 = ay(a[1]), x2 = ax(a[2]), y2 = ay(a[3]);
+        nx = ax(a[4]); ny = ay(a[5]);
+        body = `C ${fmt(x1)},${fmt(y1)} ${fmt(x2)},${fmt(y2)} ${fmt(nx)},${fmt(ny)}`; ctrl = [x2, y2]; break;
+      }
+      case 'S': {
+        const r = (prev === 'C' || prev === 'S') && px != null ? [2 * cx - px, 2 * cy - py] : [cx, cy];
+        const x2 = ax(a[0]), y2 = ay(a[1]);
+        nx = ax(a[2]); ny = ay(a[3]);
+        body = `C ${fmt(r[0])},${fmt(r[1])} ${fmt(x2)},${fmt(y2)} ${fmt(nx)},${fmt(ny)}`; ctrl = [x2, y2]; break;
+      }
+      case 'Q': {
+        const x1 = ax(a[0]), y1 = ay(a[1]);
+        nx = ax(a[2]); ny = ay(a[3]);
+        body = `Q ${fmt(x1)},${fmt(y1)} ${fmt(nx)},${fmt(ny)}`; ctrl = [x1, y1]; break;
+      }
+      case 'T': {
+        const r = (prev === 'Q' || prev === 'T') && px != null ? [2 * cx - px, 2 * cy - py] : [cx, cy];
+        nx = ax(a[0]); ny = ay(a[1]);
+        body = `Q ${fmt(r[0])},${fmt(r[1])} ${fmt(nx)},${fmt(ny)}`; ctrl = r; break;
+      }
+      case 'A':
+        nx = ax(a[5]); ny = ay(a[6]);
+        body = `A ${fmt(a[0])},${fmt(a[1])} ${fmt(a[2])} ${a[3] ? 1 : 0},${a[4] ? 1 : 0} ${fmt(nx)},${fmt(ny)}`;
+        break;
+      case 'Z':
+        if (cx !== sx || cy !== sy){ nx = sx; ny = sy; body = `L ${fmt(nx)},${fmt(ny)}`; }
+        break;
+    }
+    if (body) out.push({ d: `M ${fmt(cx)},${fmt(cy)} ${body}`, sub: Math.max(sub, 0) });
+    px = ctrl ? ctrl[0] : null; py = ctrl ? ctrl[1] : null;
+    cx = nx; cy = ny; prev = U;
+    if (U === 'Z'){ cx = sx; cy = sy; }
+  }
+  return out;
+}
+
+// Cut a circle/ellipse into `n` arcs. Quarters are cut at the CARDINAL points
+// (12/3/6/9 o'clock), so arc 1 is the upper-right quadrant and they run
+// clockwise; `mode:'diagonal'` cuts at the diagonals instead, giving a top,
+// right, bottom and left arc. Halves are always cut at 9 and 3 o'clock — an
+// upper and a lower arc, which is the pairing Bliss actually uses (a mouth, a
+// container). Emitted as open arc paths, which the prep pipeline's
+// strokeToOutline traces correctly (OpenSCAD's own importer would fill an open
+// arc as a chord region — see the stroke-to-outline notes).
+function arcPieces(cx, cy, rx, ry, n, mode){
+  const start = n === 2 ? 180 : (mode === 'diagonal' ? -135 : -90);
+  const step = 360 / n;
+  const hints = n === 2 ? ['upper', 'lower']
+    : mode === 'diagonal' ? ['top', 'right', 'bottom', 'left']
+    : ['upper right', 'lower right', 'lower left', 'upper left'];
+  const pt = deg => { const t = deg * Math.PI / 180; return [cx + rx * Math.cos(t), cy + ry * Math.sin(t)]; };
+  const out = [];
+  for (let i = 0; i < n; i++){
+    const p0 = pt(start + i * step), p1 = pt(start + (i + 1) * step);
+    out.push({
+      label: `${n === 2 ? 'half' : 'arc'} ${i + 1}`,
+      hint: hints[i] || '',
+      d: `M ${fmt(p0[0])},${fmt(p0[1])} A ${fmt(rx)},${fmt(ry)} 0 ${step > 180 ? 1 : 0},1 ${fmt(p1[0])},${fmt(p1[1])}`,
+    });
+  }
+  return out;
+}
+
+const numAttr = (el, name, dflt = 0) => { const v = parseFloat(el.getAttribute(name)); return isFinite(v) ? v : dflt; };
+const ptsOf = el => (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number)
+  .reduce((acc, v, i) => { if (i % 2) acc[acc.length - 1].push(v); else acc.push([v]); return acc; }, [])
+  .filter(p => p.length === 2 && p.every(isFinite));
+const edgePieces = pts => pts.slice(0, -1).map((p, i) => ({
+  label: `line ${i + 1}`, hint: '',
+  d: `M ${fmt(p[0])},${fmt(p[1])} L ${fmt(pts[i + 1][0])},${fmt(pts[i + 1][1])}`,
+}));
+
+// How one primitive breaks down a level further. Returns null when it is ATOMIC
+// — a straight line and a Bliss dot have no natural sub-parts, and splitting them
+// would produce halves nobody asked for.
+function subShapes(el, opts){
+  const tag = el.tagName.toLowerCase();
+  const n = 4;
+  if (tag === 'circle'){
+    const r = numAttr(el, 'r');
+    if (!(r > 0)) return null;
+    const cx = numAttr(el, 'cx'), cy = numAttr(el, 'cy');
+    return [...arcPieces(cx, cy, r, r, n, opts.cuts), ...(opts.halves ? arcPieces(cx, cy, r, r, 2, opts.cuts) : [])];
+  }
+  if (tag === 'ellipse'){
+    const rx = numAttr(el, 'rx'), ry = numAttr(el, 'ry');
+    if (!(rx > 0) || !(ry > 0)) return null;
+    const cx = numAttr(el, 'cx'), cy = numAttr(el, 'cy');
+    return [...arcPieces(cx, cy, rx, ry, n, opts.cuts), ...(opts.halves ? arcPieces(cx, cy, rx, ry, 2, opts.cuts) : [])];
+  }
+  if (tag === 'rect'){
+    const x = numAttr(el, 'x'), y = numAttr(el, 'y'), w = numAttr(el, 'width'), h = numAttr(el, 'height');
+    if (!(w > 0) || !(h > 0)) return null;
+    return edgePieces([[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]);
+  }
+  if (tag === 'polygon' || tag === 'polyline'){
+    const pts = ptsOf(el);
+    if (pts.length < 3) return null;                       // a 2-point polyline is just a line
+    return edgePieces(tag === 'polygon' ? [...pts, pts[0]] : pts);
+  }
+  if (tag === 'path'){
+    const segs = absSegments(el.getAttribute('d'));
+    if (segs.length < 2) return null;
+    // A path drawn as several subpaths splits along those first — they are
+    // separate strokes that merely share an element.
+    const subs = new Set(segs.map(s => s.sub));
+    if (subs.size > 1){
+      return [...subs].sort((a, b) => a - b).map((s, i) => {
+        const own = segs.filter(x => x.sub === s);
+        // Re-join this subpath's segments: keep the first M, drop the rest.
+        const d = own[0].d + own.slice(1).map(x => ' ' + x.d.replace(/^M\s*[-\d.,eE+\s]+/, '')).join('');
+        return { label: `shape ${i + 1}`, hint: '', d };
+      });
+    }
+    return segs.map((s, i) => ({ label: `segment ${i + 1}`, hint: '', d: s.d }));
+  }
+  return null;                                             // line: atomic
+}
+
+// A primitive's own name, for the default file name.
+function elLabel(el){
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'line'){
+    const zero = numAttr(el, 'x1') === numAttr(el, 'x2') && numAttr(el, 'y1') === numAttr(el, 'y2');
+    return zero ? 'dot' : 'line';                          // a Bliss dot is a zero-length line
+  }
+  if (tag === 'polyline') return 'line';
+  if (tag === 'path'){
+    const segs = absSegments(el.getAttribute('d'));
+    if (segs.length === 1) return /\sA\s/.test(segs[0].d) ? 'arc' : 'line';
+    return 'shape';
+  }
+  return tag;                                              // circle / ellipse / rect / polygon
+}
+
+// Which elements touch which, for the optional merge. Cheap by construction: a
+// bounding-box test (already grown by half the stroke) rejects almost every pair,
+// and only survivors get a coarse centreline sample compared point to point.
+function touchMatrix(els, boxes, root){
+  const SAMPLES = 48;
+  const pts = els.map((el, i) => {
+    try {
+      const len = typeof el.getTotalLength === 'function' ? el.getTotalLength() : 0;
+      if (!(len > 0)){
+        const p = typeof el.getPointAtLength === 'function' ? el.getPointAtLength(0) : null;
+        return p ? [[p.x, p.y]] : [];
+      }
+      const out = [];
+      for (let k = 0; k <= SAMPLES; k++) { const p = el.getPointAtLength(len * k / SAMPLES); out.push([p.x, p.y]); }
+      return out;
+    } catch { return []; }
+  });
+  const halfW = els.map(el => { const w = parseFloat(getComputedStyle(el).strokeWidth); return isFinite(w) ? w / 2 : 0; });
+  const adj = els.map(() => []);
+  for (let i = 0; i < els.length; i++){
+    for (let j = i + 1; j < els.length; j++){
+      const a = boxes[i], b = boxes[j];
+      if (!a || !b) continue;
+      if (a.maxX < b.minX || b.maxX < a.minX || a.maxY < b.minY || b.maxY < a.minY) continue;
+      const reach = halfW[i] + halfW[j] + 0.5;
+      let hit = false;
+      for (const p of pts[i]){ for (const q of pts[j]){ if (Math.hypot(p[0] - q[0], p[1] - q[1]) <= reach){ hit = true; break; } } if (hit) break; }
+      if (hit){ adj[i].push(j); adj[j].push(i); }
+    }
+  }
+  return adj;
+}
+
+// Geometry attributes a synthesized sub-shape replaces; everything else on the
+// source element (class, stroke, fill, style…) is carried over verbatim, which is
+// what keeps a piece looking like the .pen1 line-art it came from.
+const GEOM_ATTRS = new Set(['d', 'points', 'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'width', 'height']);
+const SPLIT_IDX_ATTR = 'data-bts-split-i';
+
+// Serialize one piece. `refs` = [{ idx, sub }] — the source elements it keeps,
+// each optionally replaced by one of its sub-shapes. With `ghost` the elements
+// NOT in the piece are dimmed instead of removed, which is how the dialog shows a
+// piece in the context of the whole symbol.
+function emitPiece(template, refs, ghost){
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const root = template.cloneNode(true);
+  const keep = new Map(refs.map(r => [r.idx, r.sub || null]));
+  for (const el of [...root.querySelectorAll(DRAWABLE)]){
+    const i = +el.getAttribute(SPLIT_IDX_ATTR);
+    if (!keep.has(i)){
+      if (ghost) el.setAttribute('opacity', '.12'); else el.remove();
+      continue;
+    }
+    const sub = keep.get(i);
+    if (!sub) continue;
+    const node = root.ownerDocument.createElementNS(SVGNS, 'path');
+    for (const a of el.attributes) if (!GEOM_ATTRS.has(a.name)) node.setAttribute(a.name, a.value);
+    node.setAttribute('d', sub.d);
+    node.setAttribute('fill', 'none');                     // an arc of a circle is a stroke, never a region
+    el.parentNode.replaceChild(node, el);
+  }
+  if (!ghost) root.querySelectorAll('g').forEach(g => { if (!g.querySelector(DRAWABLE)) g.remove(); });
+  root.querySelectorAll(`[${SPLIT_IDX_ATTR}]`).forEach(el => el.removeAttribute(SPLIT_IDX_ATTR));
+  return new XMLSerializer().serializeToString(root);
+}
+
+// Decompose one on-matrix symbol. Returns { pieces, warnings }; each piece is
+// { id, level, label, hint, refs, svg } with `svg` a complete standalone file.
+// opts: { cuts:'cardinal'|'diagonal', halves, includeWhole, merge }
+function splitGraphic(text, opts = {}){
+  opts = { cuts: 'cardinal', halves: false, includeWhole: true, merge: false, ...opts };
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  if (doc.querySelector('parsererror')) throw new Error('that SVG did not parse');
+  const root = getPrepHost().appendChild(document.importNode(doc.documentElement, true));
+  try {
+    const els = [...root.querySelectorAll(DRAWABLE)];
+    if (!els.length) throw new Error('that SVG has nothing to split');
+    els.forEach((el, i) => el.setAttribute(SPLIT_IDX_ATTR, String(i)));
+    const boxes = els.map(el => bboxInRootUnits(el, root));
+    const warnings = [];
+
+    // Level 1: one node per primitive, or per connected group when merging.
+    let groups = els.map((el, i) => [i]);
+    if (opts.merge){
+      const adj = touchMatrix(els, boxes, root);
+      const seen = new Set(); groups = [];
+      for (let i = 0; i < els.length; i++){
+        if (seen.has(i)) continue;
+        const stack = [i], g = [];
+        seen.add(i);
+        while (stack.length){
+          const k = stack.pop(); g.push(k);
+          for (const j of adj[k]) if (!seen.has(j)){ seen.add(j); stack.push(j); }
+        }
+        groups.push(g.sort((a, b) => a - b));
+      }
+      groups.sort((a, b) => a[0] - b[0]);
+    }
+
+    // Grow the tree depth-first. A node with several members breaks into its
+    // members; a lone member breaks into its own sub-shapes. That single rule
+    // gives "merged circle -> four arcs" and "circle -> four arcs" alike.
+    const pieces = [];
+    let id = 0;
+    const push = (level, label, hint, refs) => {
+      pieces.push({ id: id++, level, label, hint, refs, svg: emitPiece(root, refs, false) });
+      return pieces[pieces.length - 1];
+    };
+    const grow = (level, members) => {
+      if (members.length > 1){
+        // A merged group breaks into its members, and each member goes on
+        // breaking down a level further — so a group of four arcs gives the arcs
+        // at level 2 and anything they subdivide into at level 3.
+        for (const i of members){
+          push(level, elLabel(els[i]), '', [{ idx: i, sub: null }]);
+          grow(level + 1, [i]);
+        }
+        return;
+      }
+      const i = members[0], el = els[i];
+      const subs = subShapes(el, opts);
+      if (!subs || subs.length < 2) return;
+      for (const s of subs) push(level, s.label, s.hint, [{ idx: i, sub: s }]);
+    };
+
+    if (opts.includeWhole) push(0, 'whole symbol', '', els.map((_, i) => ({ idx: i, sub: null })));
+    for (const g of groups){
+      push(1, g.length > 1 ? 'group' : elLabel(els[g[0]]), '', g.map(i => ({ idx: i, sub: null })));
+      grow(2, g);
+    }
+    if (pieces.filter(p => p.level > 0).length < 2){
+      warnings.push('This symbol has only one component — there is nothing to split.');
+    }
+    // Group the output BY LEVEL rather than by which element produced it, so the
+    // set reads as the ladder it is. Sort is stable, so within a level the pieces
+    // stay in the order they were generated (document order, then cut order).
+    pieces.sort((a, b) => a.level - b.level);
+    return { pieces, warnings };
+  } finally {
+    root.remove();
+  }
+}
+
+// A piece drawn over a faint copy of the whole symbol, so a row in the dialog
+// reads as "this bit, here" rather than as an anonymous fragment.
+function splitThumb(text, refs){
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  if (doc.querySelector('parsererror')) return '';
+  const root = doc.documentElement;
+  [...root.querySelectorAll(DRAWABLE)].forEach((el, i) => el.setAttribute(SPLIT_IDX_ATTR, String(i)));
+  return emitPiece(root, refs, true);
+}
+
 // ---- SVG folder picker -----------------------------------------------------
 // Search-as-you-type over the served "SVG files" folder. The listing is
 // re-enumerated on every open (Ken, 2026-07-22) — files can arrive in the folder
@@ -1537,6 +1906,228 @@ document.getElementById('createAddBtn').addEventListener('click', () => {
 });
 createOverlay.addEventListener('mousedown', e => { if (e.target === createOverlay) closeCreateDialog(); });
 
+// ---- Split-Graphic dialog --------------------------------------------------
+// Pick one symbol, see the components it decomposes into level by level, and
+// write the ones you want out as separate .svg files. Source and destination
+// folders are per-app (APP_CONFIG.svgSplitSourceDirs / svgSplitDestDirs): Tiles
+// reads a whole Blissymbol from "Bliss SVG files" and saves the pieces into
+// "Basic SVG files" or "Puzzle SVG files" (Ken, 2026-08-11). An app that
+// configures no source folders doesn't get the button at all.
+const splitOverlay  = document.getElementById('splitOverlay');
+const splitBtn      = document.getElementById('splitGraphicBtn');
+const splitListEl   = document.getElementById('splitList');
+const splitSrcEl    = document.getElementById('splitSrcName');
+const splitBaseEl   = document.getElementById('splitBase');
+const splitDestEl   = document.getElementById('splitDest');
+const splitCountEl  = document.getElementById('splitCount');
+const splitSaveBtn  = document.getElementById('splitSave');
+const SPLIT_ENABLED = !!(APP_CONFIG.svgSplitSourceDirs && APP_CONFIG.svgSplitSourceDirs.length);
+if (splitBtn && !SPLIT_ENABLED) splitBtn.hidden = true;
+
+let splitSrc = null;        // { name, text }
+let splitRows = [];         // [{ piece, name, keep }]
+let splitDestIdx = 0;
+
+function splitOpts(){
+  return {
+    cuts:         document.getElementById('splitDiagonal').checked ? 'diagonal' : 'cardinal',
+    halves:       document.getElementById('splitHalves').checked,
+    includeWhole: document.getElementById('splitWhole').checked,
+    merge:        document.getElementById('splitMerge').checked,
+  };
+}
+
+function openSplitDialog(){
+  if (!folder) { setStatus('Open a folder first.', 'err'); return; }
+  splitSrc = null; splitRows = []; splitDestIdx = 0;
+  splitBaseEl.value = '';
+  document.getElementById('splitDiagonal').checked = false;
+  document.getElementById('splitHalves').checked = false;
+  document.getElementById('splitWhole').checked = true;
+  document.getElementById('splitMerge').checked = false;
+  splitOverlay.hidden = false;
+  renderSplitDests();
+  renderSplitRows();
+}
+function closeSplitDialog(){ splitOverlay.hidden = true; }
+
+// Destination folders are offered whether or not they exist yet — a missing one
+// is created on save, the same way Create-Graphic creates its own folder.
+function renderSplitDests(){
+  splitDestEl.innerHTML = '';
+  const dests = folder.svgSplitDests || [];
+  dests.forEach((d, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'picker-folder-btn' + (i === splitDestIdx ? ' active' : '');
+    b.textContent = d.name;
+    if (!d.handle) b.title = 'Will be created in the connected folder';
+    b.addEventListener('click', () => { splitDestIdx = i; renderSplitDests(); updateSplitCount(); });
+    splitDestEl.appendChild(b);
+  });
+}
+
+// Default file name for a piece: "<base> - <kind>", numbered when that kind of
+// piece occurs more than once ("arm - line 1" / "arm - line 2"). Numbering is by
+// the label's STEM, not the label — several elements can each produce their own
+// "line 1", and appending a second index to that reads as "line 1 2". The whole
+// symbol keeps the base name on its own.
+const labelStem = s => String(s).replace(/\s+\d+$/, '');
+function splitDefaultNames(pieces, base){
+  const counts = {};
+  for (const p of pieces) if (p.level > 0) counts[labelStem(p.label)] = (counts[labelStem(p.label)] || 0) + 1;
+  const seen = {};
+  return pieces.map(p => {
+    if (p.level === 0) return base;
+    const stem = labelStem(p.label);
+    if (counts[stem] === 1) return `${base} - ${stem}`;
+    seen[stem] = (seen[stem] || 0) + 1;
+    return `${base} - ${stem} ${seen[stem]}`;
+  });
+}
+
+function runSplit(){
+  if (!splitSrc) { splitRows = []; renderSplitRows(); return; }
+  let res;
+  try { res = splitGraphic(splitSrc.text, splitOpts()); }
+  catch (e) { splitRows = []; renderSplitRows(e.message); return; }
+  const base = splitBaseEl.value.trim() || splitSrc.name;
+  const names = splitDefaultNames(res.pieces, base);
+  splitRows = res.pieces.map((piece, i) => ({ piece, name: names[i], keep: true }));
+  renderSplitRows(res.warnings.join(' '));
+}
+
+function renderSplitRows(note){
+  splitListEl.innerHTML = '';
+  if (!splitSrc){
+    splitListEl.innerHTML = '<div class="create-empty">Choose a symbol to see its components.</div>';
+    splitCountEl.textContent = ''; splitSaveBtn.disabled = true;
+    return;
+  }
+  if (!splitRows.length){
+    splitListEl.innerHTML = `<div class="create-empty">${note || 'Nothing to split.'}</div>`;
+    splitCountEl.textContent = ''; splitSaveBtn.disabled = true;
+    return;
+  }
+  let level = -1;
+  splitRows.forEach((row, i) => {
+    if (row.piece.level !== level){
+      level = row.piece.level;
+      const h = document.createElement('div');
+      h.className = 'split-lvl';
+      const n = document.createElement('span');
+      n.textContent = level === 0 ? 'Level 0 — the whole symbol'
+        : level === 1 ? 'Level 1 — components'
+        : `Level ${level} — sub-components`;
+      const all = document.createElement('button');
+      all.type = 'button'; all.className = 'seq-chip-btn'; all.textContent = 'all / none';
+      all.addEventListener('click', () => {
+        const mine = splitRows.filter(r => r.piece.level === level);
+        const on = !mine.every(r => r.keep);
+        mine.forEach(r => { r.keep = on; });
+        renderSplitRows(note);
+      });
+      h.appendChild(n); h.appendChild(all);
+      splitListEl.appendChild(h);
+    }
+    const el = document.createElement('div');
+    el.className = 'split-row';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = row.keep;
+    cb.addEventListener('change', () => { row.keep = cb.checked; updateSplitCount(); });
+    const thumb = document.createElement('div');
+    thumb.className = 'split-thumb';
+    thumb.innerHTML = splitThumb(splitSrc.text, row.piece.refs);
+    const svg = thumb.querySelector('svg');
+    if (svg){ svg.removeAttribute('width'); svg.removeAttribute('height'); }
+    const lbl = document.createElement('span');
+    lbl.className = 'split-label';
+    lbl.textContent = row.piece.hint ? `${row.piece.label} (${row.piece.hint})` : row.piece.label;
+    const name = document.createElement('input');
+    name.type = 'text'; name.className = 'split-name'; name.value = row.name; name.autocomplete = 'off';
+    name.addEventListener('input', () => { row.name = name.value; });
+    el.append(cb, thumb, lbl, name);
+    splitListEl.appendChild(el);
+  });
+  updateSplitCount(note);
+}
+
+function updateSplitCount(note){
+  const n = splitRows.filter(r => r.keep).length;
+  const dest = (folder.svgSplitDests || [])[splitDestIdx];
+  splitCountEl.textContent = (note ? note + ' ' : '') +
+    `${n} of ${splitRows.length} piece${splitRows.length === 1 ? '' : 's'}${dest ? ` → ${dest.name}` : ''}`;
+  splitSaveBtn.disabled = !n;
+}
+
+async function saveSplitPieces(){
+  const chosen = splitRows.filter(r => r.keep);
+  if (!chosen.length) return;
+  for (const r of chosen){
+    const nm = r.name.trim();
+    if (!nm) { setStatus('Every piece needs a name.', 'err'); return; }
+    if (/[\\/:*?"<>|]/.test(nm)) { setStatus(`“${nm}” has characters a file name can’t contain.`, 'err'); return; }
+  }
+  const names = chosen.map(r => r.name.trim().toLowerCase());
+  if (new Set(names).size !== names.length) { setStatus('Two pieces have the same name.', 'err'); return; }
+
+  const dest = (folder.svgSplitDests || [])[splitDestIdx];
+  if (!dest) { setStatus('No destination folder.', 'err'); return; }
+  let destDir = dest.handle;
+  if (!destDir){
+    try { destDir = dest.handle = await folder.dir.getDirectoryHandle(dest.name, { create: true }); }
+    catch (e){ setStatus(`Couldn't open the “${dest.name}” folder — ${e.message}`, 'err'); return; }
+  }
+  // One confirmation for the whole set: writing 6 files should not mean 6 prompts.
+  const clashes = [];
+  for (const r of chosen){
+    try { await destDir.getFileHandle(r.name.trim() + '.svg'); clashes.push(r.name.trim()); } catch {}
+  }
+  if (clashes.length){
+    const list = clashes.slice(0, 6).join(', ') + (clashes.length > 6 ? `, +${clashes.length - 6} more` : '');
+    if (!(await confirmDiscard(`${clashes.length} file(s) already in “${dest.name}” will be overwritten: ${list}. Continue?`))) return;
+  }
+  try {
+    for (const r of chosen){
+      const fh = await destDir.getFileHandle(r.name.trim() + '.svg', { create: true });
+      if (!(await ensureRW(fh))) throw new Error('write permission denied');
+      const w = await fh.createWritable(); await w.write(r.piece.svg); await w.close();
+    }
+    SVG_LIST = null;                       // the picker re-enumerates on open
+    logLine(`Split "${splitSrc.name}" into ${chosen.length} file(s) in "${dest.name}": ${chosen.map(r => r.name.trim()).join(', ')}`);
+    closeSplitDialog();
+    setStatus(`Saved ${chosen.length} component${chosen.length === 1 ? '' : 's'} to the “${dest.name}” folder.`, 'ok');
+  } catch (e){ setStatus(`Save failed — ${e.message}`, 'err'); }
+}
+
+if (splitBtn && SPLIT_ENABLED){
+  splitBtn.addEventListener('click', openSplitDialog);
+  document.getElementById('splitClose').addEventListener('click', closeSplitDialog);
+  document.getElementById('splitCancel').addEventListener('click', closeSplitDialog);
+  splitSaveBtn.addEventListener('click', saveSplitPieces);
+  splitOverlay.addEventListener('mousedown', e => { if (e.target === splitOverlay) closeSplitDialog(); });
+  for (const id of ['splitDiagonal', 'splitHalves', 'splitWhole', 'splitMerge'])
+    document.getElementById(id).addEventListener('change', runSplit);
+  // Renaming the base re-derives every piece name — hand-edits are made after.
+  splitBaseEl.addEventListener('input', () => {
+    if (!splitRows.length) return;
+    const names = splitDefaultNames(splitRows.map(r => r.piece), splitBaseEl.value.trim() || splitSrc.name);
+    splitRows.forEach((r, i) => { r.name = names[i]; });
+    renderSplitRows();
+  });
+  document.getElementById('splitChooseBtn').addEventListener('click', () => {
+    openSvgPicker(async (name, srcHandle) => {
+      let text;
+      try { text = await readGraphicPartText(name, srcHandle); }
+      catch (e){ setStatus(`Couldn't read “${name}.svg” — ${e.message}`, 'err'); return; }
+      splitSrc = { name, text };
+      splitSrcEl.textContent = name;
+      splitBaseEl.value = name;
+      runSplit();
+    }, splitSrc ? splitSrc.name : '', folder.svgSplitSources);
+  });
+}
+
 // Run Step-0 prep on the currently loaded SVG, then derive the scale from
 // whatever we ended up with. Prep is unconditional — every graphic the app
 // renders goes through it. Stroke detection runs on the PREPPED svg, since that
@@ -1626,6 +2217,8 @@ window.__parseStrokeWidth = parseStrokeWidth;
 window.__applyPreset = applyPreset;
 window.__presetNames = () => presetNames();   // display order (alphabetical), matching the dropdown
 window.__composeCompound = composeCompound;
+window.__splitGraphic = splitGraphic;
+window.__absSegments = absSegments;
 window.__loadFromFolder = (dir) => loadFromFolder(dir);   // test hook: drive the UI with a mock dir
 
 // drag & drop — the only way to bring in an SVG from outside the connected
@@ -2856,6 +3449,14 @@ async function loadFromFolder(dir){
     .map(n => ({ name: n, handle: dirByLc.get(n.toLowerCase()) || null }))
     .filter(e => e.handle)
     .sort((a, b) => (a.name === APP_CONFIG.svgOwnDir ? -1 : b.name === APP_CONFIG.svgOwnDir ? 1 : 0));
+  // Split-Graphic: whole symbols are READ from svgSplitSourceDirs (must exist to
+  // be offered) and the pieces are SAVED into one of svgSplitDestDirs — those are
+  // offered whether or not they exist yet, since a missing one is created on save.
+  const svgSplitSources = (APP_CONFIG.svgSplitSourceDirs || [])
+    .map(n => ({ name: n, handle: dirByLc.get(n.toLowerCase()) || null }))
+    .filter(e => e.handle);
+  const svgSplitDests = (APP_CONFIG.svgSplitDestDirs || [])
+    .map(n => ({ name: n, handle: dirByLc.get(n.toLowerCase()) || null }));
 
   // The one .json the app owns: same basename as the .scad. Matched case-
   // insensitively (Windows is), and if it exists we keep its ON-DISK spelling so
@@ -2873,7 +3474,8 @@ async function loadFromFolder(dir){
       if (parsed.fileFormatVersion != null) presetFileFormatVersion = parsed.fileFormatVersion;
     } catch (e){ logLine('JSON parse failed: ' + e.message); presets = null; }
   }
-  folder = { dir, scadHandle, scadName, jsonHandle, jsonName, svgDir, svgPickerSources, svgCreateSources };
+  folder = { dir, scadHandle, scadName, jsonHandle, jsonName, svgDir,
+             svgPickerSources, svgCreateSources, svgSplitSources, svgSplitDests };
   SCAD_TEXT = scadText;
   PRESETS = presets;
   SVG_LIST = null;                 // drop the previous folder's listing
@@ -2895,6 +3497,11 @@ async function loadFromFolder(dir){
   if (!svgDir) logLine(`Note: no "${APP_CONFIG.svgOwnDir}" subfolder found — the graphic picker will be empty.`);
   document.getElementById('launchGate').hidden = true;
   document.getElementById('createGraphicBtn').disabled = false;   // compose needs a connected folder
+  if (splitBtn && SPLIT_ENABLED){
+    splitBtn.disabled = !svgSplitSources.length;
+    if (!svgSplitSources.length)
+      logLine(`Note: no "${APP_CONFIG.svgSplitSourceDirs.join('" or "')}" subfolder found — splitting a graphic is unavailable.`);
+  }
   setStatus('Ready — rendering…', 'busy');
   runRender();
   // Folder just connected — a safe moment (no unsaved edits) to pick up updates.

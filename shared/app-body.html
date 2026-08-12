@@ -103,6 +103,16 @@
           <path d="M18 9v10M13 14h10"/>
         </svg>
       </button>
+      <!-- Split an existing symbol into its components, each saved as its own
+           .svg (the raw material for a tile set). Hidden unless the app
+           configures source folders for it. -->
+      <button class="vp-btn" id="splitGraphicBtn" title="Split a graphic into components" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+          <rect x="3" y="4" width="8" height="7" rx="1.2"/>
+          <rect x="3" y="13" width="8" height="7" rx="1.2"/>
+          <path d="M15 12h6M18 9l3 3-3 3"/>
+        </svg>
+      </button>
       <button class="vp-btn" id="settings-btn" title="Settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3"/>
@@ -170,6 +180,60 @@
       <span class="create-spacer"></span>
       <button id="createCancel" type="button" class="svgpick-btn">Cancel</button>
       <button id="createSave" type="button" class="svgpick-btn create-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Split-Graphic dialog: decompose ONE symbol into its components — level 0 the
+     whole symbol, level 1 its drawing primitives, level 2 sub-primitive geometry
+     (a circle's four arcs) — and write the chosen pieces out as separate .svg
+     files. The inverse of Create-Graphic; each piece keeps the source's viewBox
+     and coordinates, so it prints at the size that component has on the symbol. -->
+<div id="splitOverlay" hidden>
+  <div id="splitModal" role="dialog" aria-modal="true" aria-label="Split a graphic">
+    <div class="create-head">
+      <span>Split a graphic into components</span>
+      <button id="splitClose" type="button" title="Close" aria-label="Close">✕</button>
+    </div>
+    <div class="create-body">
+      <div class="create-left">
+        <div class="create-caption">Symbol</div>
+        <div class="split-srcrow">
+          <span id="splitSrcName" class="split-srcname">— none chosen —</span>
+          <button id="splitChooseBtn" type="button" class="svgpick-btn">Choose…</button>
+        </div>
+        <div class="create-caption" style="margin-top:6px">Options</div>
+        <label class="create-opt" title="Also write the complete symbol as one file">
+          <input id="splitWhole" type="checkbox" checked> Include the whole symbol
+        </label>
+        <label class="create-opt" title="Add the upper and lower half of each circle as pieces of their own">
+          <input id="splitHalves" type="checkbox"> Add half-arcs as well as quarters
+        </label>
+        <label class="create-opt" title="Cut circles at the diagonals, giving a top, right, bottom and left arc">
+          <input id="splitDiagonal" type="checkbox"> Cut circles at the diagonals
+        </label>
+        <label class="create-opt" title="Treat strokes that touch each other as one component">
+          <input id="splitMerge" type="checkbox"> Join touching strokes into one piece
+        </label>
+        <p class="create-note">Off by default: two strokes that meet — an arm's
+          upright and its forearm — are separate components. Turn it on for a symbol
+          whose circle is drawn as loose arcs.</p>
+        <div class="create-caption" style="margin-top:6px">Save into</div>
+        <div id="splitDest" class="split-dest"></div>
+      </div>
+      <div class="create-right">
+        <div class="create-caption">Components</div>
+        <div id="splitList" class="split-list"></div>
+      </div>
+    </div>
+    <div class="create-foot">
+      <label class="create-namerow">Name pieces
+        <input id="splitBase" type="text" autocomplete="off" placeholder="e.g. eye">
+      </label>
+      <span id="splitCount" class="split-count"></span>
+      <span class="create-spacer"></span>
+      <button id="splitCancel" type="button" class="svgpick-btn">Cancel</button>
+      <button id="splitSave" type="button" class="svgpick-btn create-save" disabled>Save</button>
     </div>
   </div>
 </div>

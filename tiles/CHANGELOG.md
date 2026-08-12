@@ -7,6 +7,18 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 5
+
+- New: split a Blissymbol into its components, each saved as its own SVG — the
+  building blocks for a tile set. Choose a symbol from your `Bliss SVG files`
+  folder and the app offers it broken down in levels: the whole symbol, its
+  separate strokes and shapes, and one level further down (a circle's four arcs, a
+  shape's individual lines). Tick the pieces you want, name them, and save them
+  into `Basic SVG files` or `Puzzle SVG files`. "eye" comes apart into a circle, a
+  dot and four arcs. Each piece keeps its place on the Bliss guidelines, so it
+  prints at the size that part has on the whole symbol and a set of pieces fits
+  back together.
+
 ## Release 4
 
 - Fixed: a number you type into a field and then Save right away is now kept in
