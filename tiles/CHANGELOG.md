@@ -7,6 +7,15 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Tile and puzzle graphics are now placed by the Bliss guidelines instead of being
+  centered on their own ink, so a graphic lands where it belongs relative to the sky
+  and earth lines a tile can be engraved with. A component split out of a symbol now
+  keeps the exact place it had in the whole symbol — the upright of "arm" sits at the
+  left, not in the middle — and a set of components fits back together. Note that
+  this changes where existing tile graphics sit, and that a graphic now needs a tile
+  tall enough for the full sky-to-earth band. (Needs version 4 or later of the tile
+  and puzzle designer file.)
+
 ## Release 6
 
 - Fixed: the "What's new" notice after an update didn't appear. Both apps share

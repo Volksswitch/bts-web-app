@@ -995,28 +995,52 @@ function strokeToOutline(text){
 // band's centre at the origin therefore needs an extra shift of (bandCentre - Cy)
 // SVG units, which lands the sky line at +12 mm and the earth line at -12 mm.
 //
-// Returns the offset in SVG user units, or null if it cannot be determined.
-function registrationOffset(text){
+// Registration on BOTH axes, against the guideline matrix (Ken, 2026-08-11).
+// Returns { ox, oy } in SVG user units, or null if the matrix can't be located.
+//
+// The anchor is the matrix, not the drawing's own ink: x = the viewBox's
+// horizontal centre, y = the sky-earth band centre. That is the frame the sky and
+// earth lines engraved on a symbol or tile live in, so registering to it is what
+// puts a graphic — or a component split out of one — in the same frame as those
+// lines. Anchoring to the ink instead would centre every piece on itself, which is
+// exactly why a split component landed dead centre rather than where it belongs.
+//
+// Both offsets cancel `import(center=true)`, but with OPPOSITE signs, because the
+// importer flips Y and not X. After centring, a point (x_s, y_s) lands at
+// ((x_s - Cx)*s, (Cy - y_s)*s). We want ((x_s - anchorX)*s, (anchorY - y_s)*s), so
+// the corrections are ox = Cx - anchorX and oy = anchorY - Cy. Applying them makes
+// the mapping independent of the file's own ink — i.e. absolute.
+function matrixOffsets(text){
   const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
   if (doc.querySelector('parsererror')) return null;
   const root = getPrepHost().appendChild(document.importNode(doc.documentElement, true));
   try {
     const vb = (root.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
-    if (vb.length !== 4 || !(vb[3] > 0)) return null;
-    // Band centre: midway between sky (130) and earth (194) on the 324 matrix,
-    // scaled to this drawing's own matrix.
-    const bandCentre = vb[1] + vb[3] * ((BLISS_SKY_LINE + BLISS_EARTH_LINE) / 2 / BLISS_MATRIX_TALL);
-    let minY = Infinity, maxY = -Infinity;
+    if (vb.length !== 4 || !(vb[2] > 0) || !(vb[3] > 0)) return null;
+    const anchorX = vb[0] + vb[2] / 2;
+    const anchorY = vb[1] + vb[3] * ((BLISS_SKY_LINE + BLISS_EARTH_LINE) / 2 / BLISS_MATRIX_TALL);
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const el of root.querySelectorAll(DRAWABLE)) {
       const b = bboxInRootUnits(el, root);
       if (!b) continue;
+      minX = Math.min(minX, b.minX); maxX = Math.max(maxX, b.maxX);
       minY = Math.min(minY, b.minY); maxY = Math.max(maxY, b.maxY);
     }
-    if (!isFinite(minY)) return null;
-    return +(bandCentre - (minY + maxY) / 2).toFixed(4);
+    if (!isFinite(minY) || !isFinite(minX)) return null;
+    return {
+      ox: +((minX + maxX) / 2 - anchorX).toFixed(4),
+      oy: +(anchorY - (minY + maxY) / 2).toFixed(4),
+    };
   } finally {
     root.remove();
   }
+}
+
+// Vertical-only registration, for the Symbols graphic (its graphic() translates on
+// Y alone). Returns the offset in SVG user units, or null.
+function registrationOffset(text){
+  const o = matrixOffsets(text);
+  return o ? o.oy : null;
 }
 
 // ------------------------------------------------------------------ SVG input
@@ -2165,7 +2189,13 @@ function prepSvgText(text){
   try { const r = fattenStrokes(s);   if (r && r.svg) s = r.svg; } catch {}
   try { const r = strokeToOutline(s); if (r && r.svg) s = r.svg; } catch {}
   try { const r = normalizeUnits(s);  if (r && r.svg) { s = r.svg; mmPerUnit = r.mmPerUnit ?? 1; } } catch {}
-  return { text: s, mmPerUnit };
+  // Guideline-matrix registration, measured on the PREPPED artwork — that is the
+  // ink OpenSCAD imports. A file with no viewBox (the hand-prepped legacy SVGs)
+  // gives no matrix to register against, so it falls back to 0/0, i.e. the
+  // ink-centred behavior it had before.
+  let ox = 0, oy = 0;
+  try { const o = matrixOffsets(s); if (o) { ox = o.ox; oy = o.oy; } } catch {}
+  return { text: s, mmPerUnit, ox, oy };
 }
 
 function applyPrep(){
@@ -2238,6 +2268,19 @@ window.__presetNames = () => presetNames();   // display order (alphabetical), m
 window.__composeCompound = composeCompound;
 window.__splitGraphic = splitGraphic;
 window.__absSegments = absSegments;
+window.__matrixOffsets = matrixOffsets;
+// Test hook: set params by name and re-render, awaiting the render. Lets a test
+// drive a specific configuration (e.g. one tile-piece SVG at a time) without
+// operating the form, the way __applyPreset does for whole presets.
+window.__setParams = async (vals) => {
+  for (const [k, v] of Object.entries(vals || {})){
+    const p = PARAMS.find(x => x.name === k);
+    if (!p) continue;
+    p.value = p.type === 'number' ? parseFloat(v) : String(v);
+    if (p.applyUI) p.applyUI();
+  }
+  await runRender();
+};
 window.__loadFromFolder = (dir) => loadFromFolder(dir);   // test hook: drive the UI with a mock dir
 
 // drag & drop — the only way to bring in an SVG from outside the connected
@@ -2869,6 +2912,8 @@ function dArgs(){
   // Tiles: each piece's prepped mm/unit, so the .scad derives its raised-graphic
   // scale (band_scale_factor / mm/unit) per piece. Empty for Symbols.
   if (TILE_PIECE_MMPU.length) args.push('-D', `tile_piece_mm_per_unit=[${TILE_PIECE_MMPU.join(',')}]`);
+  if (TILE_PIECE_OFFX.length) args.push('-D', `tile_piece_offset_x=[${TILE_PIECE_OFFX.join(',')}]`);
+  if (TILE_PIECE_OFFY.length) args.push('-D', `tile_piece_offset_y=[${TILE_PIECE_OFFY.join(',')}]`);
   return args;
 }
 
@@ -2883,6 +2928,10 @@ const noise = t => /ECHO|Compiling|Geometries in cache|rendering time|Top level|
 // import(path) finds the prepped version. Always empty for Symbols.
 let TILE_PIECE_FILES = [];
 let TILE_PIECE_MMPU = [];   // slot N-1 = tile_piece_svg_N's prepped mm/unit; passed as -D
+// Guideline-matrix registration per slot, in SVG units — what puts a split
+// component where it belongs on the tile instead of dead centre (Ken, 2026-08-11).
+let TILE_PIECE_OFFX = [];
+let TILE_PIECE_OFFY = [];
 async function readSvgByRelPath(rel){
   const segs = rel.split('/').filter(Boolean);
   const file = segs.pop();
@@ -2898,26 +2947,33 @@ async function prepareTilePieceSvgs(){
   // Prep each distinct referenced SVG once, then build a slot-indexed mm/unit
   // array aligned to tile_piece_svg_1..20 (the .scad's tile_piece_svgs order), so
   // each piece's derived scale (band_scale_factor / mm/unit) is per-piece correct.
-  const cache = new Map();   // rel -> { text, mmPerUnit } | null (read/prep failed)
-  const slots = [];
+  const cache = new Map();   // rel -> { text, mmPerUnit, ox, oy } | null (read/prep failed)
+  const slots = [], slotsX = [], slotsY = [];
   for (const p of PARAMS){
     const m = p.name.match(/^tile_piece_svg_(\d+)$/);
     if (!m) continue;
     const idx = +m[1] - 1;
     const rel = String(p.value || '').trim();
-    if (!rel) { slots[idx] = 1; continue; }
+    if (!rel) { slots[idx] = 1; slotsX[idx] = 0; slotsY[idx] = 0; continue; }
     if (!cache.has(rel)){
       try { cache.set(rel, prepSvgText(await readSvgByRelPath(rel))); }
       catch (e){ logLine(`Tile-piece graphic "${rel}" could not be read/prepped — ${e.message}`); cache.set(rel, null); }
     }
     const prepped = cache.get(rel);
-    slots[idx] = prepped ? prepped.mmPerUnit : 1;
+    slots[idx]  = prepped ? prepped.mmPerUnit : 1;
+    slotsX[idx] = prepped ? prepped.ox : 0;
+    slotsY[idx] = prepped ? prepped.oy : 0;
   }
   for (const [rel, prepped] of cache){
     if (prepped) TILE_PIECE_FILES.push({ path: rel, text: prepped.text });
   }
-  // Only meaningful for Tiles; empty (no slots) for Symbols. Default any gap to 1.
-  if (slots.length) TILE_PIECE_MMPU = Array.from({ length: 20 }, (_, i) => slots[i] ?? 1);
+  // Only meaningful for Tiles; empty (no slots) for Symbols. Default any gap to 1
+  // (mm/unit) and 0 (offsets — i.e. the old ink-centred placement).
+  if (slots.length){
+    TILE_PIECE_MMPU = Array.from({ length: 20 }, (_, i) => slots[i] ?? 1);
+    TILE_PIECE_OFFX = Array.from({ length: 20 }, (_, i) => slotsX[i] ?? 0);
+    TILE_PIECE_OFFY = Array.from({ length: 20 }, (_, i) => slotsY[i] ?? 0);
+  }
 }
 
 // Run one OpenSCAD render (fresh WASM instance) and return the STL bytes, or
@@ -3067,7 +3123,9 @@ window.__modelInfo = () => (modelGroup ? modelGroup.children : []).map(m => {
   const r = v => +v.toFixed(2);
   return { tris: m.geometry.attributes.position.count / 3,
            size: [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z].map(r),
-           // positions matter for registration, not just extents
+           // positions matter for registration, not just extents — and on BOTH
+           // axes since tile pieces register horizontally too (Ken, 2026-08-11)
+           xMin: r(b.min.x), xMax: r(b.max.x), xMid: r((b.min.x + b.max.x) / 2),
            yMin: r(b.min.y), yMax: r(b.max.y), yMid: r((b.min.y + b.max.y) / 2) };
 });
 

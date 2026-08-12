@@ -599,6 +599,35 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   - Test hooks: `window.__splitGraphic(text, opts)` (headless: returns `{pieces, warnings}`) and
     `window.__absSegments(d)` (the path-segment splitter, which resolves relative commands, expands
     the smooth forms S/T, and closes Z).
+  - **Tile-piece graphics register to the GUIDELINE MATRIX, on both axes (Ken, 2026-08-11).**
+    A tile can be engraved with sky and earth lines, so a graphic — or a component split out of
+    one — has to sit in the same frame those lines live in; anchoring to anything else puts the
+    artwork and its guidelines in different frames. The anchor is **x = the viewBox's horizontal
+    centre, y = the sky-earth band centre**. Before this, `tile_piece_graphic` was a bare
+    `import(center=true)`, so every piece was centred on its own ink and a split component landed
+    dead centre instead of where it belongs.
+    - `matrixOffsets(text)` returns `{ox, oy}` in SVG units; `registrationOffset()` is now just its
+      `oy` (the Symbols `graphic()` translates on Y alone — its X is hardcoded 0, so a Symbols
+      graphic is still centred horizontally on its ink). The app passes `-D tile_piece_offset_x` /
+      `_y` (20 slots, aligned to `tile_piece_svg_1..20` like `tile_piece_mm_per_unit`), and
+      `tile_piece_graphic(path, mm_per_unit, off_x, off_y)` wraps its union in
+      `translate([off_x*sc, off_y*sc, 0])`.
+    - ⚠️ **The two offsets have OPPOSITE signs** because the importer flips Y and not X. After
+      `center=true` a point lands at `((x_s−Cx)·s, (Cy−y_s)·s)`; we want `((x_s−anchorX)·s,
+      (anchorY−y_s)·s)`, so `ox = Cx − anchorX` but `oy = anchorY − Cy`. Applying them cancels the
+      centring, making the mapping independent of the file's own ink — i.e. absolute. Get a sign
+      backwards and the piece mirrors to the wrong side, which looks plausible on a symmetric graphic.
+    - Verified end-to-end by rendering `arm` and its two components as tiles: the whole arm's raised
+      graphic spans x −7.03..7.03, y −1.03..13.03; the horizontal component x −7.03..7.03,
+      y −1.03..1.03; the vertical x −7.03..−4.97, y −1.03..13.03. Each component occupies exactly its
+      part of the whole, and the two together reproduce it.
+    - **A file with no `viewBox` falls back to 0/0**, i.e. the old ink-centred placement — same guard
+      as `stripIndicators`, so the hand-prepped legacy SVGs are unaffected.
+    - **Consequences Ken accepted:** existing tile-piece graphics move (they were ink-centred), and
+      position is now absolute, so **a graphic can overrun a tile that is shorter than the 24 mm
+      sky-to-earth band** — tile size and graphic placement are no longer independent. Backward/
+      forward compatible either way: an old `.scad` ignores the new `-D`s, and a new `.scad` with an
+      old app gets 0/0 and behaves as before.
 - **SVG input:** the Graphic Info picker, or drag-and-drop onto the viewport. `parseStrokeWidth()`
   finds the dominant stroke-width. No SVG loaded → renders the bare symbol body.
 - **Header:** title + **Export STL**, nothing else. The folder is opened once through the launch gate
