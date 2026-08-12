@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 6
+
 - Fixed: the "What's new" notice after an update didn't appear. Both apps share
   one place to remember which release you last saw, so the Bliss Tactile Symbols
   release number was hiding this app's notices. Each app now remembers its own.
