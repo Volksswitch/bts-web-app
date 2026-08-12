@@ -233,8 +233,17 @@ function maybeShowWhatsNew(){
   if (seen == null){ setLastSeenRelease(APP_RELEASE); return; }   // baseline, no notice
   if (seen >= APP_RELEASE) return;                                // already current
   const groups = collectWhatsNew(seen);
+  // Nothing to announce — leave the record WHERE IT IS rather than advancing it.
+  // One repo serves both apps, so releasing one deploys the other's pre-bumped
+  // appRelease (a dev number, one ahead of public, with no notes behind it yet).
+  // Advancing the record on that build silently consumed the notice for the
+  // release that number later became: the user ran N+1, saw nothing because
+  // there was nothing to see, and the record moved to N+1 — so when N+1 really
+  // shipped with its bullets, `seen >= APP_RELEASE` swallowed them. Holding the
+  // record back costs one cheap re-check per load. (Ken, 2026-08-11)
+  if (!groups.length) return;
   setLastSeenRelease(APP_RELEASE);                                // record before showing (a reload can't re-trigger)
-  if (groups.length) showWhatsNewModal(groups);
+  showWhatsNewModal(groups);
 }
 
 // ===== SCAD-file update (this app's designer .scad in the user's folder) =====

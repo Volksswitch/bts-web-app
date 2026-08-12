@@ -7,6 +7,10 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Fixed: a release could go by without its "What's new" notice. The app now marks
+  a release as read only when it actually had something to show, so an interim build
+  with no notes can't quietly swallow the next real one.
+
 ## Release 15
 
 - When a render fails, the on-screen message now shows what actually went wrong,
