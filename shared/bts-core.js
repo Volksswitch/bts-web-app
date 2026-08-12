@@ -1008,14 +1008,14 @@ function strokeToOutline(text){
 // Returns { ox, oy } in SVG user units, or null if the matrix can't be located.
 //
 // The anchor is the matrix, not the drawing's own ink: x = the viewBox's
-// horizontal centre, y = the sky-earth band centre. That is the frame the sky and
+// horizontal center, y = the sky-earth band center. That is the frame the sky and
 // earth lines engraved on a symbol or tile live in, so registering to it is what
 // puts a graphic — or a component split out of one — in the same frame as those
-// lines. Anchoring to the ink instead would centre every piece on itself, which is
-// exactly why a split component landed dead centre rather than where it belongs.
+// lines. Anchoring to the ink instead would center every piece on itself, which is
+// exactly why a split component landed dead center rather than where it belongs.
 //
 // Both offsets cancel `import(center=true)`, but with OPPOSITE signs, because the
-// importer flips Y and not X. After centring, a point (x_s, y_s) lands at
+// importer flips Y and not X. After centering, a point (x_s, y_s) lands at
 // ((x_s - Cx)*s, (Cy - y_s)*s). We want ((x_s - anchorX)*s, (anchorY - y_s)*s), so
 // the corrections are ox = Cx - anchorX and oy = anchorY - Cy. Applying them makes
 // the mapping independent of the file's own ink — i.e. absolute.
@@ -1223,9 +1223,11 @@ function addTenseMark(root, cx, cy, half, sw, which){
 }
 
 // Compose an ordered list of components into one on-matrix SVG string.
-// `parts` = [{ text, plural, tense }] — `text` is a component SVG (must carry a
-// viewBox); `plural` adds a × over THAT component's ink, in the indicator band,
+// `parts` = [{ text, plural, tense, over }] — `text` is a component SVG (must carry
+// a viewBox); `plural` adds a × over THAT component's ink, in the indicator band,
 // and `tense` ('past' | 'future' | '') adds the matching tense bow there instead.
+// `over` SUPERIMPOSES the part on the one before it instead of appending it to the
+// right (Ken, 2026-08-11) — see the column layout below.
 // A component that is given an indicator REPLACES its built-in one (see below).
 // `opts.stripBuiltIn` extends that to the components that were NOT given one, so
 // the whole compound comes out clean of the indicators its parts were drawn with.
@@ -1242,10 +1244,26 @@ function composeCompound(parts, opts = {}){
     const vb = (r.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
     if (vb.length !== 4 || !(vb[2] > 0) || !(vb[3] > 0))
       throw new Error('a component SVG has no usable viewBox — cannot place it on the matrix');
-    return { root: r, x: vb[0], y: vb[1], w: vb[2], h: vb[3], plural: !!pt.plural, tense: pt.tense || '' };
+    return { root: r, x: vb[0], y: vb[1], w: vb[2], h: vb[3],
+             plural: !!pt.plural, tense: pt.tense || '', over: !!pt.over };
   });
   const gap = BLISS_SEQUENCE_GAP_UNITS;
-  const totalW = parsed.reduce((s, p) => s + p.w, 0) + gap * (parsed.length - 1);
+  // Lay the parts out in COLUMNS. A column normally holds one part, but a part
+  // marked `over` joins the column before it — that is the whole of
+  // superimposition: the x cursor simply doesn't advance. Y is untouched either
+  // way, so stacked parts land on the shared guideline matrix automatically,
+  // which is the alignment Bliss superimposition wants. The first part can't be
+  // `over` (there is nothing to sit on), so it always opens a column.
+  const columns = [];
+  for (const p of parsed){
+    if (p.over && columns.length) columns[columns.length - 1].push(p);
+    else columns.push([p]);
+  }
+  // A column is as wide as its widest member, and members are CENTERED on it
+  // (Ken, 2026-08-11) — a container symbol and the symbol inside it are rarely
+  // the same width, so aligning their viewBox lefts would sit them off to one side.
+  const colW = columns.map(c => Math.max(...c.map(p => p.w)));
+  const totalW = colW.reduce((s, w) => s + w, 0) + gap * (columns.length - 1);
   const top    = Math.min(...parsed.map(p => p.y));
   const totalH = Math.max(...parsed.map(p => p.y + p.h)) - top;
   const k      = totalH / BLISS_MATRIX_TALL;   // this drawing's units per canonical unit
@@ -1262,13 +1280,19 @@ function composeCompound(parts, opts = {}){
   try {
     let dx = 0;
     const groups = [];
-    for (const p of parsed) {
-      const g = document.createElementNS(SVGNS, 'g');
-      g.setAttribute('transform', `translate(${fmt(dx - p.x)}, 0)`);   // align part's viewBox-left to dx; keep y
-      for (const node of [...p.root.childNodes]) g.appendChild(document.importNode(node, true));
-      outRoot.appendChild(g);
-      groups.push({ g, plural: p.plural, tense: p.tense });
-      dx += p.w + gap;
+    for (let ci = 0; ci < columns.length; ci++) {
+      for (const p of columns[ci]) {
+        const g = document.createElementNS(SVGNS, 'g');
+        // Center this part in its column, then align that to the cursor. For a
+        // one-part column the centering term is 0, so a plain left-to-right
+        // sequence lays out exactly as it did before.
+        const off = dx + (colW[ci] - p.w) / 2 - p.x;
+        g.setAttribute('transform', `translate(${fmt(off)}, 0)`);   // x only; y stays on the matrix
+        for (const node of [...p.root.childNodes]) g.appendChild(document.importNode(node, true));
+        outRoot.appendChild(g);
+        groups.push({ g, plural: p.plural, tense: p.tense });
+      }
+      dx += colW[ci] + gap;
     }
     // Per-element indicator: a × (plural) or a bow (past/future) over the ink
     // center of each flagged component, sitting in the indicator row (midway
@@ -1333,7 +1357,7 @@ function composeCompound(parts, opts = {}){
 //     is the same six pieces arrived at from the opposite direction.
 //
 // Every piece keeps the source's viewBox and its original coordinates: nothing is
-// re-centred or re-scaled. So each piece flows through the normal Step-0 prep on
+// re-centered or re-scaled. So each piece flows through the normal Step-0 prep on
 // the way to the printer and lands at exactly the size and place that component
 // occupies on the whole symbol (the band scale), and a set of pieces reassembles
 // into the symbol with no fitting.
@@ -1526,7 +1550,7 @@ function elLabel(el){
 
 // Which elements touch which, for the optional merge. Cheap by construction: a
 // bounding-box test (already grown by half the stroke) rejects almost every pair,
-// and only survivors get a coarse centreline sample compared point to point.
+// and only survivors get a coarse centerline sample compared point to point.
 function touchMatrix(els, boxes, root){
   const SAMPLES = 48;
   const pts = els.map((el, i) => {
@@ -1859,6 +1883,10 @@ function renderCreateChips(){
       () => part.tense === 'past', on => { part.tense = on ? 'past' : ''; if (on) part.plural = false; }));
     chip.appendChild(flag('future', 'Future-action indicator over this component',
       () => part.tense === 'future', on => { part.tense = on ? 'future' : ''; if (on) part.plural = false; }));
+    // Superimpose on the previous component instead of appending to its right.
+    // Never offered on the first chip — there is nothing under it to sit on.
+    if (i > 0) chip.appendChild(flag('over', 'Superimpose this component on the one to its left',
+      () => !!part.over, on => { part.over = on; }));
     chip.appendChild(mk('›', 'Move right', () => move(i, i + 1), i === createParts.length - 1));
     chip.appendChild(mk('✕', 'Remove',     () => { createParts.splice(i, 1); renderCreateChips(); refreshCreatePreview(); }, false));
     createChipsEl.appendChild(chip);
@@ -1884,7 +1912,7 @@ function createComposeOpts(){
 async function refreshCreatePreview(){
   if (!createParts.length) { createPreview.innerHTML = '<div class="create-empty">Add symbols to see a preview.</div>'; return; }
   let svg;
-  try { svg = composeCompound(createParts.map(p => ({ text: p.text, plural: p.plural, tense: p.tense })), createComposeOpts()); }
+  try { svg = composeCompound(createParts.map(p => ({ text: p.text, plural: p.plural, tense: p.tense, over: p.over })), createComposeOpts()); }
   catch (e) { createPreview.innerHTML = `<div class="create-empty">${e.message}</div>`; return; }
   createPreview.innerHTML = svg;
   const el = createPreview.querySelector('svg');
@@ -1916,7 +1944,7 @@ async function saveCreatedGraphic(){
   if (/[\\/:*?"<>|]/.test(name)) { setStatus('That name has characters a file name can’t contain.', 'err'); return; }
   if (!createParts.length) return;
   let svg;
-  try { svg = composeCompound(createParts.map(p => ({ text: p.text, plural: p.plural, tense: p.tense })), createComposeOpts()); }
+  try { svg = composeCompound(createParts.map(p => ({ text: p.text, plural: p.plural, tense: p.tense, over: p.over })), createComposeOpts()); }
   catch (e) { setStatus(`Couldn't build the graphic — ${e.message}`, 'err'); return; }
   // Create-Graphic saves into the app's OWN SVG folder (svgOwnDir), creating it if
   // it isn't there yet, so the composite is then referenceable on the normal path.
@@ -1952,7 +1980,7 @@ document.getElementById('createAddBtn').addEventListener('click', () => {
     let text;
     try { text = await readGraphicPartText(name, srcHandle); }
     catch (e) { setStatus(`Couldn't read “${name}.svg” — ${e.message}`, 'err'); return; }
-    createParts.push({ name, text, plural: false, tense: '' });
+    createParts.push({ name, text, plural: false, tense: '', over: false });
     renderCreateChips(); refreshCreatePreview();
   }, '', folder.svgCreateSources);
 });
@@ -2201,7 +2229,7 @@ function prepSvgText(text){
   // Guideline-matrix registration, measured on the PREPPED artwork — that is the
   // ink OpenSCAD imports. A file with no viewBox (the hand-prepped legacy SVGs)
   // gives no matrix to register against, so it falls back to 0/0, i.e. the
-  // ink-centred behavior it had before.
+  // ink-centered behavior it had before.
   let ox = 0, oy = 0;
   try { const o = matrixOffsets(s); if (o) { ox = o.ox; oy = o.oy; } } catch {}
   return { text: s, mmPerUnit, ox, oy };
@@ -2938,7 +2966,7 @@ const noise = t => /ECHO|Compiling|Geometries in cache|rendering time|Top level|
 let TILE_PIECE_FILES = [];
 let TILE_PIECE_MMPU = [];   // slot N-1 = tile_piece_svg_N's prepped mm/unit; passed as -D
 // Guideline-matrix registration per slot, in SVG units — what puts a split
-// component where it belongs on the tile instead of dead centre (Ken, 2026-08-11).
+// component where it belongs on the tile instead of dead center (Ken, 2026-08-11).
 let TILE_PIECE_OFFX = [];
 let TILE_PIECE_OFFY = [];
 async function readSvgByRelPath(rel){
@@ -2977,7 +3005,7 @@ async function prepareTilePieceSvgs(){
     if (prepped) TILE_PIECE_FILES.push({ path: rel, text: prepped.text });
   }
   // Only meaningful for Tiles; empty (no slots) for Symbols. Default any gap to 1
-  // (mm/unit) and 0 (offsets — i.e. the old ink-centred placement).
+  // (mm/unit) and 0 (offsets — i.e. the old ink-centered placement).
   if (slots.length){
     TILE_PIECE_MMPU = Array.from({ length: 20 }, (_, i) => slots[i] ?? 1);
     TILE_PIECE_OFFX = Array.from({ length: 20 }, (_, i) => slotsX[i] ?? 0);

@@ -478,9 +478,26 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   from assignment**: the dialog writes a finished `.svg` into the connected `SVG files/` folder, and it
   is then picked/assigned through the ordinary Graphic File picker like any other file. This is why the
   assignment field stayed a plain single-file picker — a compound is just one saved `.svg`.
-  - **Model — append-only, per-element indicator, create-only.** Whole symbols placed side by side on
-    the shared 324 matrix; **no stacking/superimposition, no sub-element extraction, no free positioning**
-    (Ken confirmed append-only twice). An indicator is a property of a *particular* component (Bliss
+  - **Model — sequence + superimposition, per-element indicator, create-only.** Whole symbols placed
+    side by side on the shared 324 matrix, with any component optionally **stacked on the one before
+    it** (Ken, 2026-08-11 — supersedes the earlier append-only rule). Still **no sub-element
+    extraction and no free positioning**.
+    - **Layout is by COLUMN.** A column normally holds one part; a part flagged `over` joins the
+      previous column instead of opening a new one — superimposition is simply the x cursor not
+      advancing. A column is as wide as its widest member and members are **centered on it**
+      (Ken, 2026-08-11): a container symbol and the symbol inside it are rarely the same width, so
+      aligning viewBox lefts would sit the narrow one off to one side. `totalW` sums the columns.
+      For a one-part column the centering term is 0, so a plain left-to-right sequence composes
+      **exactly** as before — verified: two parts side by side still give viewBox 132 with ink centers
+      at x 42 and 112, and stacking the same pair gives viewBox 84 with both at x 42.
+    - Y is untouched either way, so stacked parts land on the shared guideline matrix automatically —
+      the same reason side-by-side parts line up. Overlapping strokes union in OpenSCAD exactly as
+      crossing strokes within one symbol already do, so nothing downstream changes.
+    - The **first chip never offers `over`** (nothing to sit on). An indicator on a stacked part still
+      centers on *that part's* ink.
+    - ⚠️ **Real BCI superimposed compounds often scale or nudge the inner symbol**; this places both at
+      native size and matrix position, so it reproduces the pairs drawn to coexist and not the ones
+      needing a resize. Going further reopens free positioning — don't, without a decision from Ken. An indicator is a property of a *particular* component (Bliss
     places it over one element of a compound), so each component row carries its own checkboxes:
     **×** (plural), **past** and **future** (Ken, 2026-07-23). There is **no
     "edit existing"** — the dialog only creates new graphics (Ken dropped edit/reopen as too complex,
@@ -603,27 +620,27 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
     A tile can be engraved with sky and earth lines, so a graphic — or a component split out of
     one — has to sit in the same frame those lines live in; anchoring to anything else puts the
     artwork and its guidelines in different frames. The anchor is **x = the viewBox's horizontal
-    centre, y = the sky-earth band centre**. Before this, `tile_piece_graphic` was a bare
-    `import(center=true)`, so every piece was centred on its own ink and a split component landed
-    dead centre instead of where it belongs.
+    center, y = the sky-earth band center**. Before this, `tile_piece_graphic` was a bare
+    `import(center=true)`, so every piece was centered on its own ink and a split component landed
+    dead center instead of where it belongs.
     - `matrixOffsets(text)` returns `{ox, oy}` in SVG units; `registrationOffset()` is now just its
       `oy` (the Symbols `graphic()` translates on Y alone — its X is hardcoded 0, so a Symbols
-      graphic is still centred horizontally on its ink). The app passes `-D tile_piece_offset_x` /
+      graphic is still centered horizontally on its ink). The app passes `-D tile_piece_offset_x` /
       `_y` (20 slots, aligned to `tile_piece_svg_1..20` like `tile_piece_mm_per_unit`), and
       `tile_piece_graphic(path, mm_per_unit, off_x, off_y)` wraps its union in
       `translate([off_x*sc, off_y*sc, 0])`.
     - ⚠️ **The two offsets have OPPOSITE signs** because the importer flips Y and not X. After
       `center=true` a point lands at `((x_s−Cx)·s, (Cy−y_s)·s)`; we want `((x_s−anchorX)·s,
       (anchorY−y_s)·s)`, so `ox = Cx − anchorX` but `oy = anchorY − Cy`. Applying them cancels the
-      centring, making the mapping independent of the file's own ink — i.e. absolute. Get a sign
+      centering, making the mapping independent of the file's own ink — i.e. absolute. Get a sign
       backwards and the piece mirrors to the wrong side, which looks plausible on a symmetric graphic.
     - Verified end-to-end by rendering `arm` and its two components as tiles: the whole arm's raised
       graphic spans x −7.03..7.03, y −1.03..13.03; the horizontal component x −7.03..7.03,
       y −1.03..1.03; the vertical x −7.03..−4.97, y −1.03..13.03. Each component occupies exactly its
       part of the whole, and the two together reproduce it.
-    - **A file with no `viewBox` falls back to 0/0**, i.e. the old ink-centred placement — same guard
+    - **A file with no `viewBox` falls back to 0/0**, i.e. the old ink-centered placement — same guard
       as `stripIndicators`, so the hand-prepped legacy SVGs are unaffected.
-    - **Consequences Ken accepted:** existing tile-piece graphics move (they were ink-centred), and
+    - **Consequences Ken accepted:** existing tile-piece graphics move (they were ink-centered), and
       position is now absolute, so **a graphic can overrun a tile that is shorter than the 24 mm
       sky-to-earth band** — tile size and graphic placement are no longer independent. Backward/
       forward compatible either way: an old `.scad` ignores the new `-D`s, and a new `.scad` with an

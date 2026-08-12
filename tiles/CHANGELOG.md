@@ -7,6 +7,11 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- "Create a graphic" can now stack components as well as place them side by side.
+  Tick "over" on a component and it is superimposed on the one to its left instead
+  of sitting next to it — centered on it, and keeping its own height on the Bliss
+  guidelines. Useful for the compounds where one symbol goes inside or over another.
+
 ## Release 7
 
 - Tile and puzzle graphics are now placed by the Bliss guidelines instead of being
