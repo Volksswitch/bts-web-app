@@ -89,9 +89,23 @@ function logVersionBanner(){
 
 // Tiny persistent setting: the highest release whose "What's new" the user has
 // seen. localStorage (the folder handle lives in IndexedDB; this needs no handle).
-const LS_LAST_SEEN = 'bts_last_seen_release';
+// ⚠ PER-APP key. Both apps are served from ONE origin (GitHub Pages), and
+// localStorage is per-ORIGIN, not per-path — so a bare key is a single value
+// shared by Symbols and Tiles. With Symbols at release 15 and Tiles at 5, every
+// Tiles notice was suppressed by `seen >= APP_RELEASE` and would have stayed
+// suppressed until Tiles passed 15 (Ken, 2026-08-11).
+const LS_LAST_SEEN = `bts_last_seen_release:${APP_CONFIG.appDir}`;
+const LS_LAST_SEEN_LEGACY = 'bts_last_seen_release';
 function getLastSeenRelease(){
-  const v = Number(localStorage.getItem(LS_LAST_SEEN));
+  let raw = localStorage.getItem(LS_LAST_SEEN);
+  if (raw == null){
+    // One-time migration off the shared key. Adopt it only when it could
+    // plausibly be THIS app's own history: a value above our release belongs to
+    // the other app, so treat it as no record at all (baseline, no notice).
+    const legacy = Number(localStorage.getItem(LS_LAST_SEEN_LEGACY));
+    raw = Number.isFinite(legacy) && legacy > 0 && legacy <= APP_RELEASE ? String(legacy) : null;
+  }
+  const v = Number(raw);
   return Number.isFinite(v) && v > 0 ? v : null;
 }
 function setLastSeenRelease(n){ try { localStorage.setItem(LS_LAST_SEEN, String(n)); } catch {} }
@@ -107,6 +121,8 @@ function setLastSeenRelease(n){ try { localStorage.setItem(LS_LAST_SEEN, String(
 let swRegistration = null;
 let appReloadArmed = false;
 let appReloaded    = false;
+// Per-app, like the localStorage keys — one origin, two apps, two release axes.
+const SS_UPDATE_TRIED = `bts_app_update_tried:${APP_CONFIG.appDir}`;
 
 async function checkForAppUpdate(reg){
   if (!reg) return;                                    // no SW (dev/localhost) — nothing to refresh through
@@ -121,12 +137,12 @@ async function checkForAppUpdate(reg){
   // Loop guard: if we already forced a refresh for this exact version in this
   // tab and we're STILL behind, the deploy or cache is inconsistent — stop
   // rather than reload forever.
-  if (Number(sessionStorage.getItem('bts_app_update_tried')) === latest){
+  if (Number(sessionStorage.getItem(SS_UPDATE_TRIED)) === latest){
     logLine(`App is still release ${APP_RELEASE} after trying to update to ${latest}. ` +
             `If this persists, hard-refresh once with Ctrl-Shift-R.`);
     return;
   }
-  sessionStorage.setItem('bts_app_update_tried', String(latest));
+  sessionStorage.setItem(SS_UPDATE_TRIED, String(latest));
 
   logLine(`New app release ${latest} published (running ${APP_RELEASE}) — updating and reloading…`);
   setStatus('Updating to the latest app version…', 'busy');
@@ -236,7 +252,10 @@ function parseScadVersion(scadText){
 
 // "Remind me in a week" snooze, in localStorage: { until, forVersion }. A version
 // newer than the one the user postponed re-prompts immediately (forVersion gate).
-const LS_SCAD_SNOOZE = 'bts_scad_snooze';
+// Per-app for the same reason as LS_LAST_SEEN: the two designer .scads version
+// independently, so on one origin a bare key let a snooze of one silence the
+// other's update prompt (Ken, 2026-08-11).
+const LS_SCAD_SNOOZE = `bts_scad_snooze:${APP_CONFIG.appDir}`;
 function getScadSnooze(){ try { return JSON.parse(localStorage.getItem(LS_SCAD_SNOOZE) || 'null'); } catch { return null; } }
 function setScadSnooze(v){ try { localStorage.setItem(LS_SCAD_SNOOZE, JSON.stringify(v)); } catch {} }
 function clearScadSnooze(){ try { localStorage.removeItem(LS_SCAD_SNOOZE); } catch {} }

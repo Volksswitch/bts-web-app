@@ -7,6 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Fixed: the "What's new" notice after an update didn't appear. Both apps share
+  one place to remember which release you last saw, so the Bliss Tactile Symbols
+  release number was hiding this app's notices. Each app now remembers its own.
+  The same applied to the "Remind me in a week" postponement on a designer file
+  update — postponing one app's no longer silences the other's.
+
 ## Release 5
 
 - New: split a Blissymbol into its components, each saved as its own SVG — the
