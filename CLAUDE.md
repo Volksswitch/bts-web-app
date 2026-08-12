@@ -665,6 +665,21 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   **"bump bts"** / **"bump btp"** release the two designer `.scad`s (from the scad repo). See
   `RELEASING.md` for the table + ritual. Test hooks: `window.__parseScadVersion`,
   `window.__showScadUpdateModal`.
+  - ⚠️ **Browser storage is per-ORIGIN, and both apps share one origin — so every
+    key must carry `APP_CONFIG.appDir`** (Ken, 2026-08-11). GitHub Pages serves both apps
+    from `volksswitch.github.io`, and `localStorage`/`sessionStorage` are scoped to the
+    origin, *not* to the path — so a bare key is one value shared by Symbols and Tiles even
+    though their release axes are independent. This shipped as a real bug: with Symbols at
+    release 15 and Tiles at 5, the shared `bts_last_seen_release` made `maybeShowWhatsNew`'s
+    `seen >= APP_RELEASE` guard swallow **every** Tiles "What's new" notice, and it would
+    have kept doing so until Tiles passed 15. Same collision hit `bts_scad_snooze` (snoozing
+    one designer's update silenced the other's prompt) and the `bts_app_update_tried` loop
+    guard. All three are now suffixed `:${APP_CONFIG.appDir}`. The last-seen key migrates
+    off the legacy shared key once, adopting it **only if `<= APP_RELEASE`** — a higher
+    value belongs to the other app, so it is treated as no record and baselines silently
+    rather than announcing releases that never existed. **Adding any new persisted key?
+    Namespace it the same way.** (The IndexedDB folder handle is deliberately shared — both
+    apps connect to the same folder.)
 
 ---
 
