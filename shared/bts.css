@@ -87,13 +87,6 @@
   }
   .preset-combo li:hover { background: var(--panel-2); }
   .preset-combo li.active { background: var(--panel-2); font-weight: 600; }
-  /* Reset is an action, not a concept — ruled off from the names below it and
-     coloured like the "● unsaved" marker it answers. */
-  .preset-combo li.preset-reset {
-    color: var(--danger); font-weight: 600;
-    border-bottom: 1px solid var(--line); margin-bottom: 2px; padding-bottom: 4px;
-  }
-  .preset-combo li.preset-reset[hidden] { display: none; }
   /* Graphic-SVG field: text box + Open/Change button on one row. */
   .svgpick { display: flex; gap: 6px; align-items: center; }
   .svgpick input[type=text] { flex: 1 1 auto; min-width: 0; }

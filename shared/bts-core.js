@@ -2622,8 +2622,8 @@ function updateDirty(){
   const marker = document.getElementById('dirtyMarker');
   if (marker) marker.classList.toggle('visible', dirty);
   const save = document.getElementById('savePresetBtn'); if (save) save.disabled = !dirty || !folder;
-  // Reset appears in the Concepts list only while there are unsaved edits.
-  const reset = document.getElementById('presetResetRow'); if (reset) reset.hidden = !dirty || !folder;
+  // Reset acts on unsaved edits, so it is live exactly when Save is.
+  const reset = document.getElementById('resetPresetBtn'); if (reset) reset.disabled = !dirty || !folder;
   // The built-in defaults entry isn't in the file, so there is nothing to delete.
   const del  = document.getElementById('delPresetBtn');  if (del)  del.disabled  = !currentPreset || currentPreset === DEFAULTS_PRESET || !folder;
   const add  = document.getElementById('addPresetBtn');  if (add)  add.disabled  = !folder;
@@ -2672,10 +2672,14 @@ function buildPresetBar(root){
   const saveBtn = mk('savePresetBtn', 'Save', 'Overwrite the selected preset (or, with none selected, save the current settings as a new preset)');
   const addBtn  = mk('addPresetBtn',  'New', 'Create a new preset that inherits the selected preset’s settings; prompts for a name');
   const delBtn  = mk('delPresetBtn',  'Delete', 'Delete the selected preset');
-  actions.append(saveBtn, addBtn, delBtn);
+  // Reset sits beside Save and mirrors it: Save keeps your edits, Reset throws
+  // them away, and both are live only while there are edits to act on.
+  const resetBtn = mk('resetPresetBtn', 'Reset', 'Discard unsaved changes and go back to the last saved settings');
+  actions.append(saveBtn, resetBtn, addBtn, delBtn);
   bar.appendChild(actions);
 
   saveBtn.addEventListener('click', savePreset);
+  resetBtn.addEventListener('click', resetPreset);
   addBtn.addEventListener('click', addPreset);
   delBtn.addEventListener('click', deletePreset);
   updateDirty();
@@ -2712,17 +2716,6 @@ function rebuildPresetOptions(){
   if (!input || !list) return;
   input.value = currentPreset;
   list.innerHTML = '';
-  // Reset heads the list, above the concepts, and is an ACTION rather than a
-  // concept: it carries no dataset.name and presetNames() doesn't know about it,
-  // so ↑/↓ stepping walks straight past it and the input never shows its text.
-  // updateDirty() shows and hides it — it only makes sense while there is
-  // something unsaved to throw away.
-  const reset = document.createElement('li');
-  reset.id = 'presetResetRow'; reset.className = 'preset-reset'; reset.hidden = true;
-  reset.textContent = '↺ Reset — discard unsaved changes';
-  reset.title = 'Put every setting back the way it was before your unsaved edits';
-  reset.addEventListener('mousedown', e => { e.preventDefault(); closePresetList(); resetPreset(); });
-  list.appendChild(reset);
   for (const n of presetNames()){
     const li = document.createElement('li');
     li.textContent = n; li.dataset.name = n; li.setAttribute('role', 'option');
@@ -2884,13 +2877,14 @@ function applyPreset(name){
 // presetBaseline, the last known-clean snapshot: the concept as it was applied
 // or last saved, or, with no concept selected, the .scad defaults the folder
 // opened on. That one rule covers every case, so there is no separate "revert to
-// the file" path to keep in step. Offered in the Concepts list only while there
-// ARE unsaved edits — the "● unsaved" marker is the cue that it has appeared.
+// the file" path to keep in step. It is a button beside Save in the preset bar,
+// enabled exactly when Save is: the two are the pair of answers to "you have
+// unsaved changes" — keep them, or throw them away.
 function resetPreset(){
   if (!presetBaseline || !isDirty()) return;
   applyParamValues(presetBaseline);
   presetBaseline = snapshotParams();   // re-taken after the graphic settles, as applyPreset does
-  updateDirty();                       // hides the Reset row again — nothing is dirty now
+  updateDirty();                       // greys Save and Reset again — nothing is dirty now
   setStatus(currentPreset
     ? `Discarded unsaved changes to “${currentPreset}” — rendering…`
     : 'Discarded unsaved changes — rendering…', 'busy');

@@ -411,14 +411,13 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
     **`presetBaseline`** — the last known-clean snapshot. That single rule covers every case: with a
     concept selected it is that concept as applied or last saved; with none, the `.scad` defaults the
     folder opened on. There is deliberately **no separate "re-read the file" path** to keep in step.
-    - It lives **in the Concepts pull-down**, as Ken asked — a row **above** `design default values`,
-      reading "↺ Reset — discard unsaved changes". It is an **action, not a concept**: it carries no
-      `dataset.name`, `presetNames()` doesn't know about it, so **↑/↓ stepping walks straight past it**
-      and the combo input never shows its text. Putting it in `presetNames()` instead would have made
-      ↑/↓ fire a reset.
-    - **Shown only while something is dirty** — `updateDirty()` toggles its `hidden`, alongside the
-      "● unsaved" marker and the Save button, so the three appear and vanish together. A permanently
-      greyed row at the top of a 249-concept list is clutter; the marker is the cue that it's there.
+    - **It is a BUTTON beside Save** (`resetPresetBtn`, second in `.preset-actions`), not an entry in
+      the Concepts pull-down (Ken, 2026-08-14). It first shipped — in Symbols 18 / Tiles 9 — as a row
+      at the top of the combo list, shown only while dirty; **Ken didn't find it** ("I don't see a
+      reset button"), which is the whole verdict on that placement: an action hidden inside a
+      249-row name list, and invisible until you already had a problem. Save and Reset are the two
+      answers to "you have unsaved changes", so they sit together and `updateDirty()` enables and
+      greys them on the same condition. Don't move it back into the list.
     - `applyPreset`'s value-pushing body was extracted as **`applyParamValues(map)`** so Reset and a
       concept switch apply a `{param: "value"}` map by exactly the same code — including the
       graphic tail (a non-empty `graphic_svg` loads, empty/absent clears). Verified: swapping the

@@ -7,6 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Reset is now a button, next to Save under the Concepts box. It arrived in the
+  last release as a line inside the Concepts list that only appeared once you had
+  changed something, which made it hard to find. It now sits beside Save and is
+  always in view, greyed until there is something to discard — Save keeps your
+  changes, Reset throws them away.
+
 ## Release 18
 
 - New "Reset" in the Concepts list — throw away unsaved changes. As soon as you
