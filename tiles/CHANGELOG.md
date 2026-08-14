@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 12
+
 - "Slot Gap" is now set in millimeters, to a tenth of a millimeter, instead of in
   tenths of a millimeter — so a 0.4 mm gap is typed as 0.4 rather than 4. Your
   concepts file has been converted, so the gaps your saved concepts print are

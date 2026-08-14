@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 21
+
 - "Diameter Of Hole" and "Move Hole Vertically" can now be set to a tenth of a
   millimeter instead of a whole one. (Needs version 4 or later of the symbol
   designer file.)

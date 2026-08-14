@@ -84,6 +84,10 @@
   ],
   "11": [
     "Tile graphics line up with their targets. A graphic on a tile now sits in the middle of the tile from side to side, and a target graphic in the middle of its column, so a tile sits directly below its target whatever the graphic is. Up and down is unchanged — a graphic still sits at its proper height against the sky and earth lines. (Needs version 6 or later of the tile and puzzle designer file.)"
+  ],
+  "12": [
+    "\"Slot Gap\" is now set in millimeters, to a tenth of a millimeter, instead of in tenths of a millimeter — so a 0.4 mm gap is typed as 0.4 rather than 4. Your concepts file has been converted, so the gaps your saved concepts print are unchanged. \"Move Lines Vertically\" has been removed. (Needs version 7 or later of the tile and puzzle designer file.)",
+    "Fixed: the \"What's new\" notice could go missing on the very update it was meant to describe, leaving you with nothing but the start page appearing twice. The app was putting the notice up on the old build, a moment before the update reloaded the page — so the notice was swept away, and it counted as read. It now waits until the app has finished checking for an update, and appears on the new build."
   ]
 };
   // @@RELEASE_NOTES_END@@
