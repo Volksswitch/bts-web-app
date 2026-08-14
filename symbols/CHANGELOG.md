@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 20
+
 ## Release 19
 
 - Reset is now a button, next to Save under the Concepts box. It arrived in the

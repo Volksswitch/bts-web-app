@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 11
+
 - Tile graphics line up with their targets. A graphic on a tile now sits in the
   middle of the tile from side to side, and a target graphic in the middle of its
   column, so a tile sits directly below its target whatever the graphic is. Up and
