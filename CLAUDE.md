@@ -451,6 +451,22 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
     Hidden-but-real vars (`$fn`, `braille_a/d`, `symbol_colors`, …) stay — they're still valid for
     standalone desktop OpenSCAD. `Bliss_concept_width` stays in the JSON too (real param, just
     app-managed/skipped in the web app).
+    - ⚠️ **A UNIT change needs the same treatment, and it is easy to miss** (Ken, 2026-08-14).
+      Tiles' `slot_gap` went from tenths of a millimeter (`10` = 1 mm, `s_g = slot_gap/10`) to plain
+      millimeters at 0.1 precision (`1`, `s_g = slot_gap`). The parameter *name* didn't change, so
+      nothing would have flagged it — but every stored value silently meant ten times as much, and
+      52 presets would have printed a 4 mm gap where they meant 0.4. All were divided by 10, and
+      `move_lines_vertically` (deleted, `0` in all 52) was pruned in the same pass.
+    - **Migrate through a mirror of `buildPresetJson`, and verify the round trip FIRST** — the
+      unchanged file must serialize byte-for-byte before rewriting anything, or the diff is the
+      serializer's rather than the migration's. (The escaping is the trap: `\/`. Write the script
+      to a file; passing it through `node -e` in a shell mangles the backslashes and the round-trip
+      check then fails for the wrong reason.) Verify after with the old `.scad` at the old value vs
+      the new `.scad` at the new one: `slot_gap=4` (old) and `slot_gap=0.4` (new) give an identical
+      mesh bounding box.
+    - The pre-migration file is left beside the real one as `… - before <what> migration.json`.
+      That is safe by design: the app reads and writes only the `.json` matching the `.scad`'s
+      basename, and logs the rest as ignored.
 - **Graphic file picker (`graphic_svg` param, labelled "Graphic File"):** the first field in the
   Graphic Info group is a text box + a button labelled **Open** when empty / **Change** when a file is
   set. The button opens a

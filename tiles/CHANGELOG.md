@@ -7,6 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- "Slot Gap" is now set in millimeters, to a tenth of a millimeter, instead of in
+  tenths of a millimeter — so a 0.4 mm gap is typed as 0.4 rather than 4. Your
+  concepts file has been converted, so the gaps your saved concepts print are
+  unchanged. "Move Lines Vertically" has been removed. (Needs version 7 or later
+  of the tile and puzzle designer file.)
+
 - Fixed: the "What's new" notice could go missing on the very update it was meant
   to describe, leaving you with nothing but the start page appearing twice. The
   app was putting the notice up on the old build, a moment before the update

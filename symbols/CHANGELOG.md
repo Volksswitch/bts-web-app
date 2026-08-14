@@ -7,6 +7,10 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- "Diameter Of Hole" and "Move Hole Vertically" can now be set to a tenth of a
+  millimeter instead of a whole one. (Needs version 4 or later of the symbol
+  designer file.)
+
 - Fixed: the "What's new" notice could go missing on the very update it was meant
   to describe, leaving you with nothing but the start page appearing twice. The
   app was putting the notice up on the old build, a moment before the update
