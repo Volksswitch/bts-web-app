@@ -2992,7 +2992,6 @@ function dArgs(){
   // Tiles: each piece's prepped mm/unit, so the .scad derives its raised-graphic
   // scale (band_scale_factor / mm/unit) per piece. Empty for Symbols.
   if (TILE_PIECE_MMPU.length) args.push('-D', `tile_piece_mm_per_unit=[${TILE_PIECE_MMPU.join(',')}]`);
-  if (TILE_PIECE_OFFX.length) args.push('-D', `tile_piece_offset_x=[${TILE_PIECE_OFFX.join(',')}]`);
   if (TILE_PIECE_OFFY.length) args.push('-D', `tile_piece_offset_y=[${TILE_PIECE_OFFY.join(',')}]`);
   return args;
 }
@@ -3008,9 +3007,11 @@ const noise = t => /ECHO|Compiling|Geometries in cache|rendering time|Top level|
 // import(path) finds the prepped version. Always empty for Symbols.
 let TILE_PIECE_FILES = [];
 let TILE_PIECE_MMPU = [];   // slot N-1 = tile_piece_svg_N's prepped mm/unit; passed as -D
-// Guideline-matrix registration per slot, in SVG units — what puts a split
-// component where it belongs on the tile instead of dead center (Ken, 2026-08-11).
-let TILE_PIECE_OFFX = [];
+// Guideline-band registration per slot, in SVG units — what puts a split component
+// at its own height on the tile instead of at the band's middle (Ken, 2026-08-11).
+// VERTICAL ONLY: a tile graphic is centered horizontally on its own ink, so the
+// target graphic and the tile below it both sit on their column's center line and
+// therefore line up (Ken, 2026-08-14). There is no X counterpart.
 let TILE_PIECE_OFFY = [];
 async function readSvgByRelPath(rel){
   const segs = rel.split('/').filter(Boolean);
@@ -3028,30 +3029,28 @@ async function prepareTilePieceSvgs(){
   // array aligned to tile_piece_svg_1..20 (the .scad's tile_piece_svgs order), so
   // each piece's derived scale (band_scale_factor / mm/unit) is per-piece correct.
   const cache = new Map();   // rel -> { text, mmPerUnit, ox, oy } | null (read/prep failed)
-  const slots = [], slotsX = [], slotsY = [];
+  const slots = [], slotsY = [];
   for (const p of PARAMS){
     const m = p.name.match(/^tile_piece_svg_(\d+)$/);
     if (!m) continue;
     const idx = +m[1] - 1;
     const rel = String(p.value || '').trim();
-    if (!rel) { slots[idx] = 1; slotsX[idx] = 0; slotsY[idx] = 0; continue; }
+    if (!rel) { slots[idx] = 1; slotsY[idx] = 0; continue; }
     if (!cache.has(rel)){
       try { cache.set(rel, prepSvgText(await readSvgByRelPath(rel))); }
       catch (e){ logLine(`Tile-piece graphic "${rel}" could not be read/prepped — ${e.message}`); cache.set(rel, null); }
     }
     const prepped = cache.get(rel);
     slots[idx]  = prepped ? prepped.mmPerUnit : 1;
-    slotsX[idx] = prepped ? prepped.ox : 0;
     slotsY[idx] = prepped ? prepped.oy : 0;
   }
   for (const [rel, prepped] of cache){
     if (prepped) TILE_PIECE_FILES.push({ path: rel, text: prepped.text });
   }
   // Only meaningful for Tiles; empty (no slots) for Symbols. Default any gap to 1
-  // (mm/unit) and 0 (offsets — i.e. the old ink-centered placement).
+  // (mm/unit) and 0 (offset — i.e. plain ink-centered placement).
   if (slots.length){
     TILE_PIECE_MMPU = Array.from({ length: 20 }, (_, i) => slots[i] ?? 1);
-    TILE_PIECE_OFFX = Array.from({ length: 20 }, (_, i) => slotsX[i] ?? 0);
     TILE_PIECE_OFFY = Array.from({ length: 20 }, (_, i) => slotsY[i] ?? 0);
   }
 }

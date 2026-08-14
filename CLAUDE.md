@@ -642,41 +642,44 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   - Test hooks: `window.__splitGraphic(text, opts)` (headless: returns `{pieces, warnings}`) and
     `window.__absSegments(d)` (the path-segment splitter, which resolves relative commands, expands
     the smooth forms S/T, and closes Z).
-  - **TILE graphics register to the GUIDELINE MATRIX, on both axes — PUZZLE graphics do not
-    (Ken, 2026-08-11; puzzle carve-out Ken, 2026-08-14).**
+  - **TILE graphics register to the guideline band VERTICALLY ONLY; horizontally they are
+    ink-centered, and PUZZLE graphics are ink-centered on both axes**
+    (Ken, 2026-08-11; puzzle carve-out and the X reversal both Ken, 2026-08-14).
     A tile can be engraved with sky and earth lines, so a graphic — or a component split out of
-    one — has to sit in the same frame those lines live in; anchoring to anything else puts the
-    artwork and its guidelines in different frames. **A puzzle has no such lines**, so a puzzle
-    graphic belongs in the middle of its piece on both axes: the `"puzzle base"` and
-    `"puzzle piece"` branches call `tile_piece_graphic(svg, mmpu)` with **no offsets**, which
-    leaves `import(center=true)`'s own ink centering — and since the piece and the graphic share
-    an origin, ink-centered *is* piece-centered. Only the `"tile base"` and `"tile"` branches pass
-    `off_x`/`off_y`. The anchor for those is **x = the viewBox's horizontal
-    center, y = the sky-earth band center**. Before this, `tile_piece_graphic` was a bare
-    `import(center=true)`, so every piece was centered on its own ink and a split component landed
-    dead center instead of where it belongs.
-    - `matrixOffsets(text)` returns `{ox, oy}` in SVG units; `registrationOffset()` is now just its
-      `oy` (the Symbols `graphic()` translates on Y alone — its X is hardcoded 0, so a Symbols
-      graphic is still centered horizontally on its ink). The app passes `-D tile_piece_offset_x` /
-      `_y` (20 slots, aligned to `tile_piece_svg_1..20` like `tile_piece_mm_per_unit`), and
-      `tile_piece_graphic(path, mm_per_unit, off_x, off_y)` wraps its union in
-      `translate([off_x*sc, off_y*sc, 0])`.
-    - ⚠️ **The two offsets have OPPOSITE signs** because the importer flips Y and not X. After
-      `center=true` a point lands at `((x_s−Cx)·s, (Cy−y_s)·s)`; we want `((x_s−anchorX)·s,
-      (anchorY−y_s)·s)`, so `ox = Cx − anchorX` but `oy = anchorY − Cy`. Applying them cancels the
-      centering, making the mapping independent of the file's own ink — i.e. absolute. Get a sign
-      backwards and the piece mirrors to the wrong side, which looks plausible on a symmetric graphic.
-    - Verified end-to-end by rendering `arm` and its two components as tiles: the whole arm's raised
-      graphic spans x −7.03..7.03, y −1.03..13.03; the horizontal component x −7.03..7.03,
-      y −1.03..1.03; the vertical x −7.03..−4.97, y −1.03..13.03. Each component occupies exactly its
-      part of the whole, and the two together reproduce it.
-    - **A file with no `viewBox` falls back to 0/0**, i.e. the old ink-centered placement — same guard
+    one — has to sit at its own height in the frame those lines live in; anchoring Y to anything
+    else puts the artwork and its guidelines in different frames. **X is a different question**:
+    a tile graphic sits in the middle of its tile, and a target graphic in the middle of its
+    column — so the two land on the same center line and **the tile sits directly below its
+    target** (Ken, 2026-08-14). That is exactly what the Symbols `graphic()` does: translate on
+    Y, hardcode X to 0. **A puzzle has no guidelines at all**, so it is ink-centered on both
+    axes; its branches call `tile_piece_graphic(svg, mmpu)` with no offset, and since the piece
+    and the graphic share an origin, ink-centered *is* piece-centered.
+    - `matrixOffsets(text)` returns `{ox, oy}` in SVG units; only `oy` is used —
+      `registrationOffset()` is that `oy`, and the app passes `-D tile_piece_offset_y` (20 slots,
+      aligned to `tile_piece_svg_1..20` like `tile_piece_mm_per_unit`). `tile_piece_graphic(path,
+      mm_per_unit, off_y)` wraps its union in `translate([0, off_y*sc, 0])`.
+      **There is no X counterpart** — `tile_piece_offset_x` and the `off_x` argument were removed
+      outright rather than passed as 0, so nothing declared is unused. `ox` stays on
+      `matrixOffsets`/`prepSvgText` as a general measurement (and a test hook), unplumbed.
+      Removal is safe both ways: an older app's `-D` for a variable the `.scad` no longer declares
+      is harmless, and a newer app simply stops sending it, so an older `.scad` falls back to its
+      own `0` default — which IS the new behavior.
+    - ⚠️ **`oy`'s sign is the opposite of what you would write for X**, because the importer flips
+      Y. After `center=true` a point lands at `(Cy − y_s)·s`; we want `(anchorY − y_s)·s`, so
+      `oy = anchorY − Cy` (an X offset would have been `Cx − anchorX`). Applying it cancels the
+      centering on Y, making the height independent of the file's own ink — i.e. absolute.
+    - **A file with no `viewBox` falls back to 0**, i.e. plain ink-centered placement — same guard
       as `stripIndicators`, so the hand-prepped legacy SVGs are unaffected.
-    - **Consequences Ken accepted:** existing tile-piece graphics move (they were ink-centered), and
-      position is now absolute, so **a graphic can overrun a tile that is shorter than the 24 mm
-      sky-to-earth band** — tile size and graphic placement are no longer independent. Backward/
-      forward compatible either way: an old `.scad` ignores the new `-D`s, and a new `.scad` with an
-      old app gets 0/0 and behaves as before.
+    - Verified: a 2-column tile base 120 mm wide puts its two targets at x −29.00 and +29.00,
+      exactly the column centers `base_x0+gap3/2+c_+b_x+(gap3+2*b_x)*j`, whatever each graphic's
+      ink looks like; each tile renders its graphic at x 0 on a 55 mm tile. The slot and the target
+      come from the same `x` expression, so the alignment is structural, not fitted. Vertical
+      registration is untouched and still per-graphic (`arm` yMid 25, `eye` yMid 19.09).
+    - **Consequences Ken accepted:** a graphic's height is absolute, so **it can overrun a tile
+      shorter than the 24 mm sky-to-earth band** — tile size and graphic height are not
+      independent. Horizontal position is no longer absolute, so a component no longer keeps its
+      left-right place within the whole symbol; that was the 2026-08-11 behavior and Ken reversed
+      it in favor of target/tile alignment.
 - **SVG input:** the Graphic Info picker, or drag-and-drop onto the viewport. `parseStrokeWidth()`
   finds the dominant stroke-width. No SVG loaded → renders the bare symbol body.
 - **Header:** title + **Export STL**, nothing else. The folder is opened once through the launch gate

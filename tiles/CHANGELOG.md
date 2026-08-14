@@ -7,6 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Tile graphics line up with their targets. A graphic on a tile now sits in the
+  middle of the tile from side to side, and a target graphic in the middle of its
+  column, so a tile sits directly below its target whatever the graphic is. Up and
+  down is unchanged — a graphic still sits at its proper height against the sky
+  and earth lines. (Needs version 6 or later of the tile and puzzle designer file.)
+
 ## Release 10
 
 - Reset is now a button, next to Save under the Concepts box. It arrived in the
