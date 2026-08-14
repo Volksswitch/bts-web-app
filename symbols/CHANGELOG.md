@@ -7,6 +7,13 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Fixed: the "What's new" notice could go missing on the very update it was meant
+  to describe, leaving you with nothing but the start page appearing twice. The
+  app was putting the notice up on the old build, a moment before the update
+  reloaded the page — so the notice was swept away, and it counted as read. It
+  now waits until the app has finished checking for an update, and appears on the
+  new build.
+
 ## Release 20
 
 ## Release 19

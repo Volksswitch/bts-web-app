@@ -3725,9 +3725,22 @@ document.getElementById('customizer').addEventListener('change', updateDirty);
 
 // -------------------------------------------------------------------- startup
 logVersionBanner();
-// Runs every load, independent of the service worker (so it works on the dev
-// server too); the lastSeenRelease gate makes it a no-op unless the release moved.
-maybeShowWhatsNew();
+
+// "What's new" waits for the app-update check to have its say. A load that is
+// about to self-update is the WRONG load to announce anything on: it is still
+// running the OLD build, and the reload a moment later destroys the modal — but
+// maybeShowWhatsNew has already advanced the last-seen record past the release
+// it just tried to announce, so the notes are gone for good and the user sees
+// only the start page appearing twice. (Ken hit exactly that going 19 -> 20;
+// release 19's note was consumed by the pre-reload build. 2026-08-14.) Deferring
+// costs one manifest fetch of delay and puts the notice on the build that
+// actually has the new behavior in it.
+// Runs on every load, service worker or not — the dev server has none, and the
+// lastSeenRelease gate makes it a no-op unless the release moved.
+function whatsNewAfterUpdateCheck(){
+  if (appReloadArmed || appReloaded) return;   // a reload is coming; the new build announces it
+  maybeShowWhatsNew();
+}
 
 // Service worker: registered only off localhost. It is cache-first (see sw.js)
 // with CACHE_NAME bumped only at release, so on the dev server a normal reload
@@ -3739,6 +3752,7 @@ if ('serviceWorker' in navigator){
     navigator.serviceWorker.getRegistrations()
       .then(rs => rs.forEach(r => r.unregister())).catch(() => {});
     if (window.caches) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {});
+    whatsNewAfterUpdateCheck();   // no self-update on the dev server — nothing to wait for
   } else {
     // Reload exactly once when a newer worker takes control — but ONLY when a
     // load-time checkForAppUpdate armed it, so the browser's own background SW
@@ -3748,9 +3762,12 @@ if ('serviceWorker' in navigator){
     });
     navigator.serviceWorker.register('./sw.js').then(reg => {
       swRegistration = reg;
-      checkForAppUpdate(reg).catch(() => {});   // app-load staleness check
-    }).catch(() => {});
+      // app-load staleness check; the notice follows its verdict either way
+      checkForAppUpdate(reg).catch(() => {}).finally(whatsNewAfterUpdateCheck);
+    }).catch(whatsNewAfterUpdateCheck);
   }
+} else {
+  whatsNewAfterUpdateCheck();     // no service worker at all — nothing can reload us
 }
 
 (async function init(){

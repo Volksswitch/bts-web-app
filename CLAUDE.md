@@ -761,6 +761,23 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
     rather than announcing releases that never existed. **Adding any new persisted key?
     Namespace it the same way.** (The IndexedDB folder handle is deliberately shared — both
     apps connect to the same folder.)
+  - ⚠️ **"What's new" must wait for the app-update check** (Ken, 2026-08-14). `maybeShowWhatsNew()`
+    used to run at module load, *before* `checkForAppUpdate`. On a load that is about to
+    self-update that is the wrong build to announce from: the page is still the OLD release, the
+    modal goes up, `setLastSeenRelease` has **already** advanced the record — and then the update
+    reload tears the page down. The notes are consumed by a build that never showed them, and the
+    only thing the user sees is **the start page appearing twice**. Ken hit exactly this going
+    Symbols 19 → 20: release 19's Reset note was eaten by the pre-reload build.
+    - Fixed by deferring: `whatsNewAfterUpdateCheck()` returns early when `appReloadArmed ||
+      appReloaded`, and is called from the `.finally()` of the load-time `checkForAppUpdate`
+      (and directly on localhost / when there is no service worker, which can't reload us). Every
+      path in `checkForAppUpdate` that proceeds past "already current" sets `appReloadArmed`
+      **before** it resolves, so the guard is reliable; the two early returns leave it false,
+      which is precisely when the notice should show.
+    - Cost is one manifest fetch of delay before the modal, on a screen that is showing the launch
+      gate anyway. **Don't move `maybeShowWhatsNew()` back to the top of startup** — and note this
+      is a different bug from the empty-release one above: that one is about *not advancing* the
+      record, this one is about *not announcing from a doomed build*. Both guards are needed.
 
 ---
 
