@@ -221,7 +221,9 @@
         <p class="create-note">Off by default: two strokes that meet — an arm's
           upright and its forearm — are separate components. Turn it on for a symbol
           whose circle is drawn as loose arcs.</p>
-        <div class="create-caption" style="margin-top:6px">Save into</div>
+        <!-- Hidden by renderSplitDests when the app offers only one destination
+             (Symbols does) — the Save line names it anyway. -->
+        <div id="splitDestCaption" class="create-caption" style="margin-top:6px">Save into</div>
         <div id="splitDest" class="split-dest"></div>
       </div>
       <div class="create-right">

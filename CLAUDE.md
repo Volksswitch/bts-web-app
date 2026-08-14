@@ -407,6 +407,22 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
     `updateDirty()` itself — the delegated listener would otherwise miss them. Switching presets while
     dirty pops `confirmDiscard` (a DOM modal, **not** native `confirm()` — that consumes the user
     gesture the FSA permission prompt needs afterwards).
+  - **Reset — throw away unsaved edits (Ken, 2026-08-14).** `resetPreset()` restores
+    **`presetBaseline`** — the last known-clean snapshot. That single rule covers every case: with a
+    concept selected it is that concept as applied or last saved; with none, the `.scad` defaults the
+    folder opened on. There is deliberately **no separate "re-read the file" path** to keep in step.
+    - It lives **in the Concepts pull-down**, as Ken asked — a row **above** `design default values`,
+      reading "↺ Reset — discard unsaved changes". It is an **action, not a concept**: it carries no
+      `dataset.name`, `presetNames()` doesn't know about it, so **↑/↓ stepping walks straight past it**
+      and the combo input never shows its text. Putting it in `presetNames()` instead would have made
+      ↑/↓ fire a reset.
+    - **Shown only while something is dirty** — `updateDirty()` toggles its `hidden`, alongside the
+      "● unsaved" marker and the Save button, so the three appear and vanish together. A permanently
+      greyed row at the top of a 249-concept list is clutter; the marker is the cue that it's there.
+    - `applyPreset`'s value-pushing body was extracted as **`applyParamValues(map)`** so Reset and a
+      concept switch apply a `{param: "value"}` map by exactly the same code — including the
+      graphic tail (a non-empty `graphic_svg` loads, empty/absent clears). Verified: swapping the
+      graphic on `afraid` and resetting restores both the name and the 61.87 mm mesh.
   - **New** (`addPresetBtn` → `addPreset`) creates a new preset that **inherits the selected preset's
     settings** — `{ ...PRESETS[currentPreset], ...snapshotParams() }`, so the full dict (incl. hidden
     keys) carries over — and prompts for a name (prefilled with the source name). The original preset
@@ -604,10 +620,21 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
     bbox is that quadrant grown by half the fattened stroke.
   - **Folders are per-app** (`APP_CONFIG.svgSplitSourceDirs` / `svgSplitDestDirs`): Tiles reads whole
     symbols from **`Bliss SVG files`** and offers **`Basic SVG files`** or **`Puzzle SVG files`** as
-    the save destination (Ken, 2026-08-11). Sources must exist to be offered; a **destination is
-    offered whether or not it exists** and is created on save, as Create-Graphic creates its own
-    folder. Symbols configures neither, so **the button is hidden there** — no app-specific code, just
+    the save destination (Ken, 2026-08-11). **Symbols offers it too** (Ken, 2026-08-14): it reads from
+    its own **`Bliss SVG files`** and can save into **any of the three** —
+    `Bliss SVG files` (first, so it's the default: the only folder its own Graphic File picker reads)
+    **or either Tiles folder**, so a symbol can be broken into tile/puzzle parts without switching
+    apps (Ken, 2026-08-14). Sources must exist to be offered; a **destination is offered whether or
+    not it exists** and is created on save, as Create-Graphic creates its own folder. An app that
+    configures **no** source folders doesn't get the button at all — no app-specific code, just
     absent config.
+    - **The destination selector and its "Save into" caption hide when there is only one destination**,
+      the same rule Create-Graphic's source selector follows. Neither app is in that state today
+      (both offer three and two), but the Save line names the folder regardless
+      ("6 of 6 pieces → Bliss SVG files"), so nothing is left unsaid either way.
+    - Splitting is **entirely app-side** — it reads an SVG, decomposes it, and writes `.svg` files;
+      the pieces then flow through the ordinary picker. **No `.scad` change is involved in offering
+      it in another app.**
   - Each row carries a checkbox, a thumbnail showing the piece over a faint copy of the whole symbol,
     and an editable file name. Default names are `<base> - <kind>`, numbered by the label's **stem**
     when a kind repeats (`arm - line 1` / `arm - line 2`) — several elements can each produce their
@@ -616,10 +643,16 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   - Test hooks: `window.__splitGraphic(text, opts)` (headless: returns `{pieces, warnings}`) and
     `window.__absSegments(d)` (the path-segment splitter, which resolves relative commands, expands
     the smooth forms S/T, and closes Z).
-  - **Tile-piece graphics register to the GUIDELINE MATRIX, on both axes (Ken, 2026-08-11).**
+  - **TILE graphics register to the GUIDELINE MATRIX, on both axes — PUZZLE graphics do not
+    (Ken, 2026-08-11; puzzle carve-out Ken, 2026-08-14).**
     A tile can be engraved with sky and earth lines, so a graphic — or a component split out of
     one — has to sit in the same frame those lines live in; anchoring to anything else puts the
-    artwork and its guidelines in different frames. The anchor is **x = the viewBox's horizontal
+    artwork and its guidelines in different frames. **A puzzle has no such lines**, so a puzzle
+    graphic belongs in the middle of its piece on both axes: the `"puzzle base"` and
+    `"puzzle piece"` branches call `tile_piece_graphic(svg, mmpu)` with **no offsets**, which
+    leaves `import(center=true)`'s own ink centering — and since the piece and the graphic share
+    an origin, ink-centered *is* piece-centered. Only the `"tile base"` and `"tile"` branches pass
+    `off_x`/`off_y`. The anchor for those is **x = the viewBox's horizontal
     center, y = the sky-earth band center**. Before this, `tile_piece_graphic` was a bare
     `import(center=true)`, so every piece was centered on its own ink and a split component landed
     dead center instead of where it belongs.

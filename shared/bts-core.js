@@ -2004,6 +2004,8 @@ const splitSaveBtn  = document.getElementById('splitSave');
 const SPLIT_ENABLED = !!(APP_CONFIG.svgSplitSourceDirs && APP_CONFIG.svgSplitSourceDirs.length);
 if (splitBtn && !SPLIT_ENABLED) splitBtn.hidden = true;
 
+// Placeholder for the Symbol label, matching app-body.html's initial markup.
+const SPLIT_NO_SOURCE = '— none chosen —';
 let splitSrc = null;        // { name, text }
 let splitRows = [];         // [{ piece, name, keep }]
 let splitDestIdx = 0;
@@ -2020,6 +2022,10 @@ function splitOpts(){
 function openSplitDialog(){
   if (!folder) { setStatus('Open a folder first.', 'err'); return; }
   splitSrc = null; splitRows = []; splitDestIdx = 0;
+  // The dialog always opens with no symbol chosen, so the Symbol label has to go
+  // back to its placeholder — leaving the last session's name there implied a
+  // symbol was loaded when the piece list was empty (Ken, 2026-08-14).
+  splitSrcEl.textContent = SPLIT_NO_SOURCE;
   splitBaseEl.value = '';
   document.getElementById('splitDiagonal').checked = false;
   document.getElementById('splitHalves').checked = false;
@@ -2036,6 +2042,12 @@ function closeSplitDialog(){ splitOverlay.hidden = true; }
 function renderSplitDests(){
   splitDestEl.innerHTML = '';
   const dests = folder.svgSplitDests || [];
+  // With a single destination there is no choice to make, so the picker and its
+  // caption stay out of the way — the Save line still names the folder. This is
+  // the same rule Create-Graphic uses for its source selector.
+  const one = dests.length < 2;
+  splitDestEl.hidden = one;
+  document.getElementById('splitDestCaption').hidden = one;
   dests.forEach((d, i) => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -2610,6 +2622,8 @@ function updateDirty(){
   const marker = document.getElementById('dirtyMarker');
   if (marker) marker.classList.toggle('visible', dirty);
   const save = document.getElementById('savePresetBtn'); if (save) save.disabled = !dirty || !folder;
+  // Reset appears in the Concepts list only while there are unsaved edits.
+  const reset = document.getElementById('presetResetRow'); if (reset) reset.hidden = !dirty || !folder;
   // The built-in defaults entry isn't in the file, so there is nothing to delete.
   const del  = document.getElementById('delPresetBtn');  if (del)  del.disabled  = !currentPreset || currentPreset === DEFAULTS_PRESET || !folder;
   const add  = document.getElementById('addPresetBtn');  if (add)  add.disabled  = !folder;
@@ -2698,6 +2712,17 @@ function rebuildPresetOptions(){
   if (!input || !list) return;
   input.value = currentPreset;
   list.innerHTML = '';
+  // Reset heads the list, above the concepts, and is an ACTION rather than a
+  // concept: it carries no dataset.name and presetNames() doesn't know about it,
+  // so ↑/↓ stepping walks straight past it and the input never shows its text.
+  // updateDirty() shows and hides it — it only makes sense while there is
+  // something unsaved to throw away.
+  const reset = document.createElement('li');
+  reset.id = 'presetResetRow'; reset.className = 'preset-reset'; reset.hidden = true;
+  reset.textContent = '↺ Reset — discard unsaved changes';
+  reset.title = 'Put every setting back the way it was before your unsaved edits';
+  reset.addEventListener('mousedown', e => { e.preventDefault(); closePresetList(); resetPreset(); });
+  list.appendChild(reset);
   for (const n of presetNames()){
     const li = document.createElement('li');
     li.textContent = n; li.dataset.name = n; li.setAttribute('role', 'option');
@@ -2811,11 +2836,10 @@ async function selectPreset(name){
 // stray values from the one before it, so the same concept could render
 // differently depending on what you had loaded first. This is what the keyguard
 // designer does — populateFormFromPreset builds a full map the same way.
-function applyPreset(name){
-  // The built-in defaults entry is synthesised from the .scad, not looked up in
-  // the JSON; from here on it behaves exactly like a stored preset.
-  const preset = (name === DEFAULTS_PRESET) ? SCAD_DEFAULTS : (PRESETS && PRESETS[name]);
-  if (!preset) return;
+// Push a {param: "value-as-string"} map onto the live params. Shared by
+// applyPreset and resetPreset — the two differ only in where the map comes from
+// (a stored concept vs the last known-clean snapshot), not in how it is applied.
+function applyParamValues(preset){
   for (const p of PARAMS){
     if (APP_MANAGED.has(p.name)) continue;
     if (p.name === 'graphic_svg') continue;   // handled below — absent means "no graphic", not "keep"
@@ -2832,8 +2856,6 @@ function applyPreset(name){
     if (p.applyUI) p.applyUI();
   }
   applyColors();          // display-colour params are viewport-only
-  currentPreset = name;
-  rebuildPresetOptions();   // syncs the combo input + moves the active row
   // The graphic belongs to the preset like any other value, so a MISSING
   // graphic_svg key means "no graphic" — not "keep whatever the last concept
   // loaded". Carrying it over silently attached artwork the user never chose for
@@ -2842,11 +2864,38 @@ function applyPreset(name){
   const nm = String(preset.graphic_svg ?? '').trim();
   if (nm) { setGraphicSvgName(nm); loadSvgByName(nm); }   // loads + preps + renders
   else clearGraphic();                                    // blanks the box and re-renders
+}
+
+function applyPreset(name){
+  // The built-in defaults entry is synthesised from the .scad, not looked up in
+  // the JSON; from here on it behaves exactly like a stored preset.
+  const preset = (name === DEFAULTS_PRESET) ? SCAD_DEFAULTS : (PRESETS && PRESETS[name]);
+  if (!preset) return;
+  currentPreset = name;
+  rebuildPresetOptions();   // syncs the combo input + moves the active row
+  applyParamValues(preset);
   // Baseline AFTER the graphic is settled, so a fresh preset doesn't read dirty.
   presetBaseline = snapshotParams();
   updateDirty();
   setStatus('Applied preset “' + name + '” — rendering…', 'busy');
 }
+
+// Reset — throw away unsaved edits (Ken, 2026-08-14). It restores
+// presetBaseline, the last known-clean snapshot: the concept as it was applied
+// or last saved, or, with no concept selected, the .scad defaults the folder
+// opened on. That one rule covers every case, so there is no separate "revert to
+// the file" path to keep in step. Offered in the Concepts list only while there
+// ARE unsaved edits — the "● unsaved" marker is the cue that it has appeared.
+function resetPreset(){
+  if (!presetBaseline || !isDirty()) return;
+  applyParamValues(presetBaseline);
+  presetBaseline = snapshotParams();   // re-taken after the graphic settles, as applyPreset does
+  updateDirty();                       // hides the Reset row again — nothing is dirty now
+  setStatus(currentPreset
+    ? `Discarded unsaved changes to “${currentPreset}” — rendering…`
+    : 'Discarded unsaved changes — rendering…', 'busy');
+}
+window.__resetPreset = resetPreset;
 
 // ---- preset save / add / delete (write the single JSON in place) -----------
 // Serialize to the on-disk format: 4-space indent, keys sorted within each
@@ -3019,7 +3068,19 @@ async function renderOnce(extraArgs){
   // Collect OpenSCAD's own ERROR: lines so a failed render can report the real
   // cause in the status pill (the console isn't shown in the app).
   const errLines = [];
-  const capture = t => { if (/ERROR:/i.test(t)) errLines.push(t.replace(/^ERROR:\s*/i, '').trim()); };
+  // "Current top level object is empty." is OpenSCAD's way of saying this pass
+  // had nothing to draw. It exits 1 for it, but for us that is a legitimate
+  // outcome, not a failure — see the rc check below.
+  let emptyTop = false;
+  // Test hook: everything OpenSCAD printed for the LAST pass. Most of it is
+  // filtered out of the on-screen log by noise(), so this is the only way to see
+  // why a pass came out empty or failed.
+  const all = []; window.__lastRenderOut = all;
+  const capture = t => {
+    all.push(t);
+    if (/ERROR:/i.test(t)) errLines.push(t.replace(/^ERROR:\s*/i, '').trim());
+    if (/Current top level object is empty/i.test(t)) emptyTop = true;
+  };
   const oscad = await createOpenSCAD({
     print:    t => { capture(t); if (!noise(t)) logLine(t); },
     printErr: t => { capture(t); if (!noise(t)) logLine(t); },
@@ -3036,7 +3097,14 @@ async function renderOnce(extraArgs){
   }
   const args = ['/bliss.scad', '-o', '/out.stl', '--backend=Manifold', ...dArgs(), ...extraArgs];
   const rc = oscad.getInstance().callMain(args);
-  if (rc !== 0) throw new Error(errLines.length ? errLines[errLines.length - 1] : 'render returned code ' + rc);
+  // A pass with no geometry is normal, not an error: the graphic pass of a tile
+  // base whose target graphics are switched off has nothing raised to draw, and
+  // OpenSCAD exits 1 for that with no ERROR: line of its own. Report it as "no
+  // mesh" (callers already handle a null) instead of "render returned code 1".
+  if (rc !== 0){
+    if (emptyTop && !errLines.length) return null;
+    throw new Error(errLines.length ? errLines[errLines.length - 1] : 'render returned code ' + rc);
+  }
   try { return fs.readFile('/out.stl'); } catch (e) { return null; }
 }
 

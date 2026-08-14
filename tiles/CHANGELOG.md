@@ -7,6 +7,23 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 9
+
+- New "Reset" in the Concepts list — throw away unsaved changes. As soon as you
+  change anything, "● unsaved" appears and a "↺ Reset — discard unsaved changes"
+  line appears at the top of the Concepts list. Choosing it puts every setting,
+  including the graphic, back the way it was when you last opened or saved the
+  concept, and the list goes back to normal. With no concept chosen it goes back
+  to the designer file's own defaults.
+
+- Fixed: several concepts failed with "Render failed: render returned code 1".
+  Any concept with the target graphics switched off — the "no targets" ones —
+  leaves nothing raised to draw, and the app was treating "nothing to draw" as a
+  failure instead of simply drawing the base on its own.
+- "Split a graphic into components" now opens with no symbol chosen. It used to
+  still show the name of the symbol you split last time, even though the list of
+  components below it was empty.
+
 ## Release 8
 
 - "Create a graphic" can now stack components as well as place them side by side.

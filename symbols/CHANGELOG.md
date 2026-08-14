@@ -7,6 +7,25 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 18
+
+- New "Reset" in the Concepts list — throw away unsaved changes. As soon as you
+  change anything, "● unsaved" appears and a "↺ Reset — discard unsaved changes"
+  line appears at the top of the Concepts list. Choosing it puts every setting,
+  including the graphic, back the way it was when you last opened or saved the
+  concept, and the list goes back to normal. With no concept chosen it goes back
+  to the designer file's own defaults.
+
+- New "Split a graphic into components" button, next to "Create a graphic". Pick
+  one symbol and it shows you the parts it is drawn from — the whole symbol, each
+  line, circle and dot, and the quarter-arcs a circle is made of — each with a
+  picture and a file name you can edit. Tick the ones you want and choose where
+  they go: your own Bliss SVG files folder, where they are ready to pick in
+  Graphic File like any other graphic, or the Basic SVG files or Puzzle SVG files
+  folder, to build a tile or puzzle set out of a symbol's parts without leaving
+  this app. Every part keeps the size and place it had on the whole symbol, so a
+  set of parts fits back together.
+
 ## Release 17
 
 - "Create a graphic" can now stack components as well as place them side by side.
