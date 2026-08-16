@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 22
+
 - Updates are now more reliable. The app used to look up its version information
   on GitHub — a site some school and workplace networks block outright, and one
   that could briefly disagree with the app itself just after a release. It now
