@@ -868,6 +868,15 @@ units ballooned ~5×. Keep offsets that must be a fixed physical size **outside*
 ⚠️ **`bliss.scad` is read once, when the folder is opened**, into the in-memory `SCAD_TEXT`, so
 editing it requires **reconnecting the folder** (or reloading `app.html` and re-opening) to take
 effect — a re-render alone reuses `SCAD_TEXT`. The read is straight from the folder handle (no HTTP
+⚠️ **Never hard-reload on the RETIRING address (`volksswitch.github.io/bliss-tactile-symbols-web/`)
+during the migration rehearsal.** It bypasses the service worker, and on a test client that is
+the one action that can destroy the state the test depends on — and those client states are
+one-shot (see `ORIGIN-MIGRATION-STATE.md` §14 and the before-state record). Hard-reloading on
+localhost or on `bts.volksswitch.org` is fine. In the app itself the user-facing advice is gone:
+Settings → Preferences has **"Reload the app cleanly"**, which migrates first if a move is due and
+only then clears caches — clearing them first would remove the very thing that carries the
+hand-over.
+
 cache in play), but the reload of `app.html` itself can still be cache-served — hard-reload when
 verifying app-code changes.
 

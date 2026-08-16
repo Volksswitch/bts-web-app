@@ -376,6 +376,19 @@
 
   /* Viewport column — the 3D view with its button bar pinned underneath, so the
      bar is part of the view rather than a separate app-wide header. */
+  /* Pre-move notice — deliberately modest. The loss it guards against is
+     survivable, and an alarming bar would spend credibility that the
+     post-move reinstall notice needs (Ken, 2026-08-15). */
+  #backupNotice {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 8px 12px; background: #fdf6e3; border-bottom: 1px solid #e8dcc0;
+    color: #5c4813; font-size: 13px; line-height: 1.45;
+  }
+  #backupNotice[hidden] { display: none; }
+  #backupNoticeText { flex: 1 1 260px; min-width: 0; }
+  .backup-notice-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+  #backupNotice button { font-size: 12px; padding: 3px 10px; }
+
   #viewcol { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
   #viewport { flex: 1 1 auto; position: relative; min-width: 0; min-height: 0; background: var(--viewport-bg); }
   #viewport canvas { display: block; }

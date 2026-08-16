@@ -395,8 +395,11 @@ async function checkForAppUpdate(reg){
   // tab and we're STILL behind, the deploy or cache is inconsistent — stop
   // rather than reload forever.
   if (Number(sessionStorage.getItem(SS_UPDATE_TRIED)) === latest){
+    // Never tell the user to hard-refresh. It bypasses the service worker, and
+    // on a retiring address that removes the only thing that can hand their
+    // settings over — see cleanReload().
     logLine(`App is still release ${APP_RELEASE} after trying to update to ${latest}. ` +
-            `If this persists, hard-refresh once with Ctrl-Shift-R.`);
+            `If this persists, use “Reload the app cleanly” on the Settings → Preferences tab.`);
     return;
   }
   sessionStorage.setItem(SS_UPDATE_TRIED, String(latest));
@@ -510,9 +513,80 @@ function maybeShowWhatsNew(){
   showWhatsNewModal(groups);
 }
 
+// ===== Pre-move notice =====
+// Shown ONLY on the retiring address, and only until the Save button is pressed.
+// Deliberately modest (Ken, 2026-08-15): the automatic move carries settings for
+// almost everyone, so "back up or lose everything" would be alarming AND mostly
+// untrue — and it would spend credibility that the post-move reinstall notice
+// needs. It says nothing about the new address either, because the two-addresses
+// business is invisible plumbing a user cannot act on. The backup IS the only
+// thing they can do, so it is the only thing asked of them.
+//
+// ⚠ DELIBERATELY NOT per-app, unlike every other persisted key. A backup covers
+// the whole address — both apps at once — so backing up in Symbols must also
+// stop Tiles asking. The namespacing rule exists to stop two apps COLLIDING over
+// one value; here the shared value is the correct model.
+const LS_BACKED_UP    = 'bts_settings_backed_up';
+const SS_NOTICE_LATER = 'bts_backup_notice_snoozed';
+
+function backupNoticeDue(){
+  if (localStorage.getItem(LS_BACKED_UP) === 'yes') return false;   // they did it — never again
+  if (sessionStorage.getItem(SS_NOTICE_LATER) === 'yes') return false; // "not now" — this session only
+  return MIGRATION.isOld;                                           // only on the retiring address
+}
+
+function showBackupNotice(force){
+  const el = document.getElementById('backupNotice');
+  if (!el) return;
+  if (!force && !backupNoticeDue()){ el.hidden = true; return; }
+  document.getElementById('backupNoticeText').innerHTML =
+    `<b>Please save a copy of your settings.</b> They are kept by your browser rather than in `
+    + `your folder, so a saved copy is what protects them. It takes one click.`;
+  el.hidden = false;
+}
+
+function wireBackupNotice(){
+  const el = document.getElementById('backupNotice');
+  if (!el) return;
+  document.getElementById('backupNoticeSave').addEventListener('click', () => {
+    try {
+      saveSettingsBackup();
+      localStorage.setItem(LS_BACKED_UP, 'yes');    // recorded only on success
+      el.hidden = true;
+    } catch (e){
+      document.getElementById('backupNoticeText').textContent =
+        'Could not save your settings: ' + e.message;
+    }
+  });
+  document.getElementById('backupNoticeLater').addEventListener('click', () => {
+    sessionStorage.setItem(SS_NOTICE_LATER, 'yes');  // back on the next visit
+    el.hidden = true;
+  });
+}
+
+// ===== Clean reload — the replacement for "hard-refresh with Ctrl-Shift-R" =====
+// That advice used to be printed to users, and it is the one action that can
+// destroy a move: a hard reload bypasses the service worker, and on an address
+// that has stopped serving the app there is then nothing left to run the
+// hand-over. Replaced by a button that does the safe thing.
+//
+// ORDER MATTERS. Check for a due move FIRST. Clearing caches before migrating
+// would remove the very thing that lets page code run on a retiring address — a
+// naive "clear cache and reload" is exactly as destructive as the hard refresh
+// it replaces.
+async function cleanReload(){
+  if (await maybeMigrateOrigin()) return;            // probes internally; false if not due
+  try { (await navigator.serviceWorker.getRegistrations()).forEach(r => r.unregister()); } catch {}
+  try { if (window.caches){ const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } } catch {}
+  location.reload();
+}
+
 // Test hooks for the migration rehearsal — the backup/restore path cannot be
 // driven through an OS file dialog from an automated browser, so it is exercised
 // through these. See BTS-MIGRATION-TEST-PLAN.docx.
+window.__showBackupNotice = (force = true) => showBackupNotice(force);
+window.__backupNoticeDue  = () => backupNoticeDue();
+window.__cleanReload      = () => cleanReload();
 window.__settingsBackup  = () => settingsBackupObject();
 window.__migration       = () => ({ ...MIGRATION, arrival: MIGRATION_ARRIVAL });
 window.__migrationPayload= () => JSON.parse(decodeURIComponent(escape(atob(migrationPayload()))));
@@ -3759,6 +3833,13 @@ const SETTINGS_PANELS = {
         <input id="prefLoadInput" type="file" accept="application/json,.json" hidden>
       </div>
       <p id="prefMsg" style="margin:0; min-height:1.2em; color:var(--muted);"></p>
+
+      <label style="margin-top:14px;">If the app seems stuck on an old version</label>
+      <div style="margin-bottom:8px;">
+        This clears the copy your browser is holding and starts the app fresh.
+        Use this rather than a hard refresh &mdash; a hard refresh can lose settings.
+      </div>
+      <button id="prefReloadBtn" type="button">Reload the app cleanly</button>
     </div>
   `,
 };
@@ -3796,6 +3877,11 @@ function wireSettingsPanel(cat){
       const n = saveSettingsBackup();
       setMsg(`Saved ${n} item${n === 1 ? '' : 's'} to bliss-settings-backup.json. Keep it somewhere you will find it.`);
     } catch (e){ setMsg('Could not save your settings: ' + e.message, true); }
+  });
+
+  document.getElementById('prefReloadBtn').addEventListener('click', () => {
+    setMsg('Reloading…');
+    cleanReload().catch(e => setMsg('Could not reload: ' + e.message, true));
   });
 
   const input = document.getElementById('prefLoadInput');
@@ -4121,6 +4207,8 @@ if ('serviceWorker' in navigator){
 }
 
 (async function init(){
+  wireBackupNotice();
+  showBackupNotice();          // no-op unless we are on the retiring address
   const gate = document.getElementById('launchGate');
   if (!window.showDirectoryPicker){
     showGate('This browser has no File System Access API — use Chrome or Edge.');
