@@ -7,6 +7,14 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 23
+
+- New app icon: a white symbol on a black background, matching the
+  Volksswitch website. Black and white stay visible whatever colors you
+  have chosen for your desktop. The window's title bar now matches the
+  icon. Each app keeps its own picture, so they are still easy to tell
+  apart from one another.
+
 ## Release 22
 
 - Updates are now more reliable. The app used to look up its version information

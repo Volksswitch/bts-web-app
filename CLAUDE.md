@@ -1045,7 +1045,9 @@ BTS web app/
 │   ├── manifest.webmanifest · latest_app_version.json · CHANGELOG.md
 ├── tiles/             ← Bliss Tiles and Puzzles app (same shape as symbols/)
 ├── scripts/           ← apply-release-notes.mjs (both apps), publish-app-version.mjs <app>
-├── favicon.svg · icons/   ← shared, referenced by each shell with ../
+├── favicon.svg        ← landing-page mark only
+├── icons/             ← per-app icon sets, see "App icons — the Volksswitch standard"
+│                        <app>.svg · <app>-maskable.svg · <app>-{192,512,maskable-512}.png
 ├── openscad-wasm/     ← Vendored openscad-wasm v0.0.4 (single-threaded, embedded wasm) — shared
 └── vendor/three/      ← Vendored Three.js + TrackballControls + STLLoader — shared
 ```
@@ -1061,6 +1063,69 @@ reads all of these from the user's **connected folder**, never from a repo (exce
 `.scad`/manifest it fetches for updates).
 
 ---
+
+## App icons — the Volksswitch standard (Ken, 2026-08-16)
+
+**White glyph on a BLACK plate means "this app is served from its own volksswitch.org
+subdomain."** Ken set this as the house standard while moving BTS/BTP to
+`bts.volksswitch.org`. Conversant is already white-on-black and already domain-based, so it
+already conforms; the keyguard designer (white on light green) converts **when it migrates**.
+
+- **Why black and white specifically:** they match the Volksswitch website's own scheme, and
+  — Ken's point — **black and white are the only colors that stay visible against any
+  desktop color scheme.** A tinted plate can disappear into someone's wallpaper or taskbar.
+- **Why this replaced the earlier idea of "mark the OLD app."** During a migration a user
+  can end up with two icons, same name, same artwork — one pointing at the retired address.
+  Marking the *old* one would have required Chrome to update an already-installed app's icon
+  from a changed manifest, which is unreliable and would have needed a sandbox test. Marking
+  the **new** one needs no update mechanism at all, because the new app is always installed
+  fresh. It also stops being a "migration mark" the moment everything has migrated — it is
+  simply the brand.
+- **Not a scar on the permanent app:** the end state is white-on-black everywhere, so the
+  green plates are the transitional oddity, not the black ones.
+
+### What every app ships
+
+```
+icons/
+  <app>.svg                    rounded plate (rx ≈ 0.1875 × side), the app's own glyph
+                               — this is the app's favicon AND the source for the PNGs
+  <app>-maskable.svg           FULL-BLEED plate, no rounded corners; glyph scaled to 80%
+                               about centre so a platform crop cannot clip it
+  <app>-192.png                from <app>.svg
+  <app>-512.png                from <app>.svg
+  <app>-maskable-512.png       from <app>-maskable.svg
+```
+
+- Flat naming, `icons/<app>-<size>.png`. Sources and PNGs sit together in `icons/`.
+- Root `favicon.svg` is the **landing page's** mark only (currently the Symbols glyph).
+- **Each app keeps its OWN glyph** — Symbols is the Blissymbol for "all" (square + both
+  diagonals), Tiles is the Blissymbol face. The plate color says *which origin*; the glyph
+  says *which app*. Both distinctions are needed at once.
+- **The maskable variant is not optional.** Android crops icons to its own shape, so a
+  rounded-plate icon gets its corners cut twice and the glyph can be clipped. Tiles shipped
+  without one until 2026-08-16 and rendered worse than Symbols on some platforms.
+
+### Regenerating the PNGs
+
+`.svg` is the source of truth — edit it, then re-render. ImageMagick is installed; there is
+no cairosvg/rsvg on this machine:
+
+```bash
+magick -background none icons/<app>.svg          -resize 192x192 icons/<app>-192.png
+magick -background none icons/<app>.svg          -resize 512x512 icons/<app>-512.png
+magick -background none icons/<app>-maskable.svg -resize 512x512 icons/<app>-maskable-512.png
+```
+
+### The title bar matches the icon
+
+`theme_color` in each `manifest.webmanifest` **and** `<meta name="theme-color">` in each
+shell (plus the root landing page) are **`#000000`**, so an installed app's window frame
+matches its icon. A black icon opening a green-framed window reads as a mismatch.
+
+⚠️ **The app's INTERIOR accent is a different thing and stays teal.** `--accent: #2b8a80`
+in `shared/bts.css` and the landing page is UI styling, not identity — changing the icon
+scheme must not restyle the app. Ken asked for icons; the interior was deliberately left.
 
 ## Working conventions
 

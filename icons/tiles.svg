@@ -3,7 +3,7 @@
        from the printed tile (head, ears, eyes, nose, mouth), drawn white on the
        app's accent plate to match the Symbols icon's style and stay visible
        against light or dark browser chrome. Public domain (CC0). -->
-  <rect width="512" height="512" rx="96" fill="#2b8a80"/>
+  <rect width="512" height="512" rx="96" fill="#000000"/>
   <g fill="none" stroke="#ffffff" stroke-width="18"
      stroke-linecap="round" stroke-linejoin="round">
     <!-- head -->

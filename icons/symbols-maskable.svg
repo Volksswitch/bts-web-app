@@ -7,7 +7,7 @@
        The glyph sits inside the 80% safe zone — its corners are 9.9 units from
        centre, well within the 12.8-unit safe radius — so no crop can clip it.
        Public domain (CC0), as with the rest of this project. -->
-  <rect width="32" height="32" fill="#2b8a80"/>
+  <rect width="32" height="32" fill="#000000"/>
   <g fill="none" stroke="#ffffff" stroke-width="2"
      stroke-linecap="round" stroke-linejoin="round">
     <path d="M9 9H23V23H9Z"/>

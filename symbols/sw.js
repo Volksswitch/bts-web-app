@@ -5,7 +5,7 @@
 // handler purges old caches so clients get the new version on next load. It only
 // ever goes UP, and moves only at release (in lockstep with this app's
 // APP_RELEASE and its latest_app_version.json). See RELEASING.md.
-const CACHE_NAME = 'bts-symbols-v14';
+const CACHE_NAME = 'bts-symbols-v15';
 
 // This app's shell, served over HTTP from this origin (GitHub Pages). The shared
 // engine + vendored deps live above /symbols/, reached with ../ . The user's
@@ -15,10 +15,10 @@ const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
-  '../favicon.svg',
-  '../icons/icon-192.png',
-  '../icons/icon-512.png',
-  '../icons/icon-maskable-512.png',
+  '../icons/symbols.svg',
+  '../icons/symbols-192.png',
+  '../icons/symbols-512.png',
+  '../icons/symbols-maskable-512.png',
   '../shared/bts.css',
   '../shared/app-body.html',
   '../shared/bts-core.js',
