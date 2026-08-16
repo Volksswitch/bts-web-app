@@ -7,6 +7,13 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Groundwork for the app's move to a new web address. This release cannot move
+  anyone — it only teaches the app how, and it stays switched off until the
+  new address is ready. When it does happen you will be asked to open your
+  folder once more, because permission to read a folder cannot follow the app
+  to a new address. Your concepts and graphics are in that folder and are not
+  affected. Your settings come across with you.
+
 ## Release 15
 
 - New Preferences tab in Settings, with two things in it. You can turn off the

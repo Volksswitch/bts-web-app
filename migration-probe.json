@@ -1,0 +1,5 @@
+{
+  "ready": false,
+  "note": "Set ready to true ONLY when bts.volksswitch.org is serving properly and you are ready for the old address to start moving people across. The old app requires this exact flag before it will move anyone, so the move can be disarmed here without touching DNS.",
+  "newOrigin": "https://bts.volksswitch.org"
+}

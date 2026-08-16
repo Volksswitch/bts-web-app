@@ -29,6 +29,139 @@ if (!APP_CONFIG) throw new Error('APP_CONFIG missing — the shell must set wind
 const DESIGNER = APP_CONFIG.designerLabel || 'designer';
 const capFirst = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ORIGIN MIGRATION
+// ═══════════════════════════════════════════════════════════════════════════
+// Both halves live here, gated by which address we are on, so ONE implementation
+// serves both deployments: the retiring Pages site (departure) and
+// bts.volksswitch.org (arrival). Neither half does anything on any other address.
+//
+// WHY THIS EXISTS. Browser storage is bound to the web address that created it.
+// Moving to bts.volksswitch.org starts from an empty store and nothing is
+// inherited, so unless the OLD app hands the data over as it sends the user
+// across, their setup is gone. Once the old address stops serving the app, no
+// page can ever load there to read that storage again.
+//
+// PAGE-ONLY. Never put this in the service worker as well. A worker intercepts
+// the navigation before any page code runs and has no localStorage, so it always
+// arrives empty-handed — implementing both guarantees the worse one wins.
+// Measured in the sandbox: every migration arrived with no payload until the
+// worker-side redirect was removed.
+const MIGRATION = (() => {
+  const OLD_ORIGIN = 'https://volksswitch.github.io';
+  const OLD_PREFIX = '/bliss-tactile-symbols-web';        // the retiring Pages project
+  const NEW_ORIGIN = 'https://bts.volksswitch.org';
+  // Path-qualified on purpose: the NEW site is also reachable at
+  // volksswitch.github.io/bts-web-app/, and that must never be mistaken for the
+  // old one and told to migrate to itself.
+  const isOld = location.origin === OLD_ORIGIN &&
+                location.pathname.startsWith(OLD_PREFIX + '/');
+  return {
+    OLD_ORIGIN, OLD_PREFIX, NEW_ORIGIN, isOld,
+    PROBE_URL: NEW_ORIGIN + '/migration-probe.json',
+    PROBE_TIMEOUT_MS: 4000,
+    // /bliss-tactile-symbols-web/symbols/ -> /symbols/   (the repo segment goes)
+    newPathFor: p => (p.startsWith(OLD_PREFIX) ? (p.slice(OLD_PREFIX.length) || '/') : p),
+  };
+})();
+
+// Keys that must NOT cross between addresses.
+// `bts_last_seen_release:*` records which releases you have READ THE NOTES FOR —
+// it describes one app's history, not a user preference. The two deployments now
+// climb separate release ladders and will cross, so carrying it over means
+// arriving believing you have read everything and having every notice the new
+// app had silently swallowed. Exactly the failure that hid ten releases of Tiles
+// notices behind Symbols' higher number (Ken, 2026-08-11). Excluded from the
+// migration payload AND from a cross-address restore. Everything else travels.
+const migrationExcluded = k => k.startsWith('bts_last_seen_release');
+
+// Probe before moving anyone: a blind redirect strands every user whose new
+// address is not serving yet. A REAL CORS fetch requiring an explicit
+// `ready:true` — never `mode:'no-cors'`, whose opaque response resolves even on
+// a 404 and would happily move people onto a broken host. Requiring the flag
+// also means the move can be disarmed without touching DNS.
+async function migrationTargetReady(){
+  try {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), MIGRATION.PROBE_TIMEOUT_MS);
+    const r = await fetch(MIGRATION.PROBE_URL + '?t=' + Date.now(), { cache: 'no-store', signal: c.signal });
+    clearTimeout(t);
+    if (!r.ok) return false;
+    return (await r.json())?.ready === true;
+  } catch { return false; }
+}
+
+// EVERY key on this address except the excluded ones — both apps', not just this
+// one's. Symbols and Tiles share a single address and therefore a single store,
+// so whichever app the user happens to open first must bring the other along;
+// scoping this to the calling app would strand the other one's settings on an
+// address that can never be read again.
+// The connected folder is deliberately absent: a folder permission cannot be
+// serialised or transferred by any means. One re-pick restores it for both apps.
+function migrationPayload(){
+  const ls = {};
+  for (let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    if (migrationExcluded(k)) continue;
+    ls[k] = localStorage.getItem(k);
+  }
+  return btoa(unescape(encodeURIComponent(JSON.stringify({
+    ls, movedAt: new Date().toISOString(), fromApp: APP_CONFIG.appDir,
+  }))));
+}
+
+// Leave nothing behind that could keep serving the old app. getRegistrations()
+// returns every scope on the address, so migrating from /symbols/ also retires
+// /tiles/ — both are being replaced at once.
+async function migrationTearDown(){
+  try { (await navigator.serviceWorker.getRegistrations()).forEach(r => r.unregister()); } catch {}
+  try { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch {}
+}
+
+async function maybeMigrateOrigin(){
+  if (!MIGRATION.isOld) return false;
+  if (!await migrationTargetReady()){
+    console.log('[migration] new address not ready — staying put, will retry next load');
+    return false;
+  }
+  const payload = migrationPayload();
+  await migrationTearDown();
+  const here = MIGRATION.newPathFor(location.pathname) + location.search;
+  const sep  = here.includes('?') ? '&' : '?';
+  location.replace(MIGRATION.NEW_ORIGIN + here + sep +
+    `from=${encodeURIComponent(location.origin)}&via=page&s=${encodeURIComponent(payload)}`);
+  return true;
+}
+
+// ── Arrival ────────────────────────────────────────────────────────────────
+// Runs IMMEDIATELY, before anything else reads localStorage, so restored values
+// are visible on this very load rather than one load later. Never clobbers what
+// is already here — arriving a second time (a stale bookmark) must change
+// nothing. That is the opposite of the deliberate, user-initiated restore in
+// Preferences, which does overwrite.
+const MIGRATION_ARRIVAL = (() => {
+  const q = new URLSearchParams(location.search);
+  const from = q.get('from');
+  if (!from) return null;
+  const via = q.get('via') || 'unknown';
+  const restored = [];
+  const s = q.get('s');
+  if (s){
+    try {
+      const d = JSON.parse(decodeURIComponent(escape(atob(s))));
+      for (const [k, v] of Object.entries(d.ls || {})){
+        if (migrationExcluded(k)) continue;              // belt and braces
+        if (localStorage.getItem(k) === null){ localStorage.setItem(k, v); restored.push(k); }
+      }
+      console.log(`[migration] arrived from ${from} via ${via}; restored ${restored.length} key(s):`, restored);
+    } catch (e){ console.warn('[migration] payload unreadable —', e.message); }
+  } else {
+    console.warn(`[migration] arrived from ${from} via ${via} with NO payload — settings stayed behind`);
+  }
+  history.replaceState(null, '', location.pathname);      // clean address bar for bookmarking
+  return { from, via, restored };
+})();
+
 // The two apps share app-body.html, so app-specific text can't be literal in the
 // markup — fill it here from APP_CONFIG. (Trusted config values, so innerHTML is
 // safe.) Settings "About" labels and the "What's new" body are filled elsewhere.
@@ -36,10 +169,25 @@ const capFirst = s => s ? s[0].toUpperCase() + s.slice(1) : s;
   // Both apps connect to the SAME folder (folderName); only what THIS app needs
   // from it (its own .scad + own SVG folder) is app-specific, in the message.
   const gt = document.getElementById('gateTitle');
-  if (gt) gt.textContent = `Open your ${APP_CONFIG.folderName} folder`;
   const gm = document.getElementById('gateMsg');
-  if (gm) gm.innerHTML = `Pick the folder that holds <b>${APP_CONFIG.scadBaseName}.scad</b>, its `
-    + `<b>.json</b>, and the <b>${APP_CONFIG.svgOwnDir}</b> folder. The app remembers it next time.`;
+  // Someone who has just been moved gets the explanation IN the gate rather than
+  // in a banner above it. The gate is a modal in the middle of the screen and
+  // wins the user's attention outright; a strip along the top loses to it, and
+  // the one thing they must do — reconnect the folder — is the gate's own job.
+  // Their concepts and graphics are in the folder and were never at risk, so the
+  // wording says that rather than leaving them to wonder (Ken, 2026-08-15).
+  if (MIGRATION_ARRIVAL){
+    if (gt) gt.textContent = `Please open your ${APP_CONFIG.folderName} folder again`;
+    if (gm) gm.innerHTML =
+      `<b>${APP_CONFIG.appName} has moved to a new web address.</b> Your settings came with you, `
+      + `but the permission to read your folder cannot move between addresses — so please pick it `
+      + `once more. Nothing in the folder has changed: your concepts and graphics are all still there. `
+      + `Please update your bookmark, and if you installed this app, install it again from here.`;
+  } else {
+    if (gt) gt.textContent = `Open your ${APP_CONFIG.folderName} folder`;
+    if (gm) gm.innerHTML = `Pick the folder that holds <b>${APP_CONFIG.scadBaseName}.scad</b>, its `
+      + `<b>.json</b>, and the <b>${APP_CONFIG.svgOwnDir}</b> folder. The app remembers it next time.`;
+  }
   const wt = document.getElementById('whatsnewTitle');
   if (wt) wt.textContent = `What’s new in ${APP_CONFIG.appName}`;
   const st = document.getElementById('scadUpdateTitle');
@@ -202,11 +350,18 @@ async function restoreSettingsBackup(file){
   if (!obj || obj.kind !== SETTINGS_BACKUP_KIND || !obj.settings || typeof obj.settings !== 'object'){
     throw new Error('That is not a Bliss settings backup file.');
   }
-  let n = 0;
+  // A backup saved at a DIFFERENT address must not bring that app's record of
+  // which releases you have read — the two deployments number their releases
+  // separately, so it would silently swallow this app's notices. Same reasoning
+  // as migrationExcluded; this is the same hole reached by a different route.
+  const crossAddress = !!obj.savedFrom && obj.savedFrom !== location.origin;
+  let n = 0, skipped = 0;
   for (const [k, v] of Object.entries(obj.settings)){
     if (typeof v !== 'string') continue;
+    if (crossAddress && migrationExcluded(k)){ skipped++; continue; }
     localStorage.setItem(k, v); n++;
   }
+  if (skipped) console.log(`[settings] ignored ${skipped} release-history item(s) from another address`);
   const when = obj.savedAt ? obj.savedAt.slice(0, 10) : 'an earlier date';
   logLine(`Restored ${n} setting${n === 1 ? '' : 's'} from a backup saved on ${when}.`);
   return { count: n, savedAt: obj.savedAt, savedFrom: obj.savedFrom };
@@ -359,6 +514,9 @@ function maybeShowWhatsNew(){
 // driven through an OS file dialog from an automated browser, so it is exercised
 // through these. See BTS-MIGRATION-TEST-PLAN.docx.
 window.__settingsBackup  = () => settingsBackupObject();
+window.__migration       = () => ({ ...MIGRATION, arrival: MIGRATION_ARRIVAL });
+window.__migrationPayload= () => JSON.parse(decodeURIComponent(escape(atob(migrationPayload()))));
+window.__probeReady      = () => migrationTargetReady();
 window.__settingsRestore = (obj) => restoreSettingsBackup(
   new File([JSON.stringify(obj)], 'backup.json', { type: 'application/json' }));
 window.__getShowWhatsNew = () => getShowWhatsNew();
@@ -3934,6 +4092,11 @@ function whatsNewAfterUpdateCheck(){
 // would keep serving the cached build instead of the latest edit — skip and
 // unregister it there. In production it powers the offline shell + self-update.
 if ('serviceWorker' in navigator){
+  // Attempt the move BEFORE registering a worker. If it fires, this page is
+  // replaced and nothing below matters; if the new address is not ready, we
+  // carry on exactly as before and retry on the next load.
+  maybeMigrateOrigin().catch(() => {});
+
   const isLocalDev = ['localhost', '127.0.0.1', '[::1]', '::1'].includes(location.hostname);
   if (isLocalDev){
     navigator.serviceWorker.getRegistrations()
