@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 15
+
 - New Preferences tab in Settings, with two things in it. You can turn off the
   “What’s new” notice that appears after the app updates itself. And you can
   now save a copy of your settings to a file, and load a saved copy back.
