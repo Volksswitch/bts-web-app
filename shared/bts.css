@@ -379,6 +379,10 @@
   /* Pre-move notice — deliberately modest. The loss it guards against is
      survivable, and an alarming bar would spend credibility that the
      post-move reinstall notice needs (Ken, 2026-08-15). */
+  #gateRestore { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+  #gateRestore[hidden] { display: none; }
+  #gateRestoreMsg { margin: 0 0 5px; font-size: 13px; color: var(--muted); }
+
   #backupNotice {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     padding: 8px 12px; background: #fdf6e3; border-bottom: 1px solid #e8dcc0;

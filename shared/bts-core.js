@@ -564,6 +564,63 @@ function wireBackupNotice(){
   });
 }
 
+// ===== Offer to restore, when this address holds nothing =====
+// The counterpart to the backup button. A backup whose restore path is hard to
+// find at the moment of confusion is a seatbelt with no buckle — and the moment
+// of confusion is precisely this one: an app that looks brand new.
+//
+// Shown only when there are no settings here at all, so a returning user is
+// never nagged. It appears for a genuinely new user too, which is harmless and
+// occasionally useful (setting up a second machine from a saved copy).
+// ⚠ Must ignore the app's OWN bookkeeping, or this is always true and the offer
+// never appears. `maybeShowWhatsNew` baselines `bts_last_seen_release:<app>` on
+// the very first load — before this runs — so counting it made a brand-new,
+// empty address look like one that already had settings. Caught in testing: the
+// offer was suppressed for precisely the stranded user it exists for.
+// migrationExcluded() already names that key as "history, not a preference".
+function settingsPresent(){
+  for (let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i) || '';
+    if (!k.startsWith('bts_')) continue;
+    if (migrationExcluded(k)) continue;
+    return true;
+  }
+  return false;
+}
+
+function showRestoreOffer(){
+  const box = document.getElementById('gateRestore');
+  if (!box) return;
+  if (settingsPresent()){ box.hidden = true; return; }
+  // Arriving with nothing is the case worth naming out loud: they were moved and
+  // their setup did not come with them, which is exactly when a backup earns its
+  // keep. Everyone else gets the quiet version.
+  const strandedByMove = !!MIGRATION_ARRIVAL && MIGRATION_ARRIVAL.restored.length === 0;
+  document.getElementById('gateRestoreMsg').textContent = strandedByMove
+    ? 'Your settings did not come across with you. If you saved a copy, you can load it now.'
+    : 'Starting fresh? If you have a saved settings file, you can load it now.';
+  box.hidden = false;
+}
+
+function wireRestoreOffer(){
+  const box = document.getElementById('gateRestore');
+  if (!box) return;
+  const input = document.getElementById('gateRestoreInput');
+  document.getElementById('gateRestoreBtn').addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const f = input.files && input.files[0];
+    input.value = '';
+    if (!f) return;
+    const msg = document.getElementById('gateRestoreMsg');
+    try {
+      const r = await restoreSettingsBackup(f);
+      msg.textContent = `Restored ${r.count} item${r.count === 1 ? '' : 's'}. ` +
+        `Your folder still needs connecting below.`;
+      document.getElementById('gateRestoreBtn').hidden = true;
+    } catch (e){ msg.textContent = e.message; }
+  });
+}
+
 // ===== Clean reload — the replacement for "hard-refresh with Ctrl-Shift-R" =====
 // That advice used to be printed to users, and it is the one action that can
 // destroy a move: a hard reload bypasses the service worker, and on an address
@@ -585,6 +642,8 @@ async function cleanReload(){
 // driven through an OS file dialog from an automated browser, so it is exercised
 // through these. See BTS-MIGRATION-TEST-PLAN.docx.
 window.__showBackupNotice = (force = true) => showBackupNotice(force);
+window.__showRestoreOffer = () => showRestoreOffer();
+window.__settingsPresent  = () => settingsPresent();
 window.__backupNoticeDue  = () => backupNoticeDue();
 window.__cleanReload      = () => cleanReload();
 window.__settingsBackup  = () => settingsBackupObject();
@@ -4209,6 +4268,8 @@ if ('serviceWorker' in navigator){
 (async function init(){
   wireBackupNotice();
   showBackupNotice();          // no-op unless we are on the retiring address
+  wireRestoreOffer();
+  showRestoreOffer();          // no-op unless this address holds nothing
   const gate = document.getElementById('launchGate');
   if (!window.showDirectoryPicker){
     showGate('This browser has no File System Access API — use Chrome or Edge.');

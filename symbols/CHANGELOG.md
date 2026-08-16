@@ -7,6 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- If the app ever opens with no settings at all — on a new computer, or after
+  your browser has been cleared — it now offers to load a saved settings file
+  right there on the opening screen, instead of quietly starting from scratch.
+
+## Release 26
+
 ## Release 25
 
 - If the app ever seems stuck on an old version, Settings → Preferences now has

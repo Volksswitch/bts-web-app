@@ -265,6 +265,15 @@
     <!-- Only shown when a folder is remembered: escape hatch to pick a different one. -->
     <div><button id="gateNewBtn" type="button" class="gate-link" hidden>Connect to new folder</button></div>
     <p id="gateErr" class="gate-err" hidden></p>
+    <!-- Offered only when this address holds no settings at all — i.e. a fresh
+         start, whether that is a new machine, a cleared browser, or an arrival
+         that came with nothing. Presenting a confident blank slate to someone
+         who has a backup sitting in Downloads is the failure this prevents. -->
+    <div id="gateRestore" hidden>
+      <p id="gateRestoreMsg"></p>
+      <button id="gateRestoreBtn" type="button" class="gate-link">Load a saved settings file…</button>
+      <input id="gateRestoreInput" type="file" accept="application/json,.json" hidden>
+    </div>
   </div>
 </div>
 
