@@ -7,6 +7,17 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- New Preferences tab in Settings, with two things in it. You can turn off the
+  “What’s new” notice that appears after the app updates itself. And you can
+  now save a copy of your settings to a file, and load a saved copy back.
+
+- Why saving a copy is worth doing: your settings are kept by your browser
+  against this app’s web address. They are not in your folder with your
+  concepts and graphics, so they do not travel when you move to another
+  computer, and they are lost if the browser is ever cleared. A saved copy
+  covers both. It also covers both apps at once — a copy saved from either
+  one restores the settings for both.
+
 ## Release 14
 
 - New app icon: a white symbol on a black background, matching the

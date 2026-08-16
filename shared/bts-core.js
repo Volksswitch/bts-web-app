@@ -134,6 +134,84 @@ function getLastSeenRelease(){
 }
 function setLastSeenRelease(n){ try { localStorage.setItem(LS_LAST_SEEN, String(n)); } catch {} }
 
+// ===== User preferences =====
+// ⚠ PER-APP key, same rule as LS_LAST_SEEN — both apps are served from ONE
+// origin and localStorage is per-ORIGIN, not per-path, so a bare key would be a
+// single value shared by Symbols and Tiles. Namespace EVERY new persisted key.
+// Being per-app is also what makes the migration rehearsal meaningful: Symbols
+// and Tiles each carry their own value, so the move can be shown to bring both.
+const LS_SHOW_WHATSNEW = `bts_show_whatsnew:${APP_CONFIG.appDir}`;
+function getShowWhatsNew(){ return localStorage.getItem(LS_SHOW_WHATSNEW) !== 'no'; }  // default ON
+function setShowWhatsNew(on){ try { localStorage.setItem(LS_SHOW_WHATSNEW, on ? 'yes' : 'no'); } catch {} }
+
+// ===== Save / load settings =====
+// Origin-independent, download-based insurance. It exists because browser
+// storage is bound to the web address that created it: moving the app to
+// bts.volksswitch.org starts from an empty store, and nothing is inherited.
+// The automatic hand-over covers most people, but not someone who cleared their
+// browser, arrived on a new machine, or came back after the old address retired.
+// A file the user keeps is the only thing that covers those.
+//
+// The payload is EVERY key on this origin, not just this app's — deliberately
+// mirroring the migration payload. Symbols and Tiles share one origin, so a
+// backup taken from either must be able to restore both; scoping it to the
+// calling app would silently strand the other one's settings.
+const SETTINGS_BACKUP_KIND = 'bliss-settings-backup';
+
+function settingsBackupObject(){
+  const settings = {};
+  for (let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    settings[k] = localStorage.getItem(k);
+  }
+  return {
+    kind: SETTINGS_BACKUP_KIND, version: 1,
+    savedAt: new Date().toISOString(),
+    savedBy: APP_CONFIG.appName, savedFrom: location.origin,
+    settings,
+  };
+}
+
+// Download rather than write into the connected folder: a folder is not always
+// connected, the folder belongs to a project while settings sit above it, and a
+// download works on a locked-down machine with no folder access at all.
+function saveSettingsBackup(){
+  const obj  = settingsBackupObject();
+  const n    = Object.keys(obj.settings).length;
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = 'bliss-settings-backup.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  logLine(`Saved a copy of your settings (${n} item${n === 1 ? '' : 's'}).`);
+  return n;
+}
+
+// Restore OVERWRITES. This is a deliberate, user-initiated action — unlike the
+// automatic arrival importer, which must never clobber, because arriving twice
+// has to be harmless. Restoring the same file twice is therefore also harmless:
+// it simply writes the same values again.
+async function restoreSettingsBackup(file){
+  let obj;
+  try { obj = JSON.parse(await file.text()); }
+  catch { throw new Error('That file could not be read — it is not a settings backup.'); }
+  if (!obj || obj.kind !== SETTINGS_BACKUP_KIND || !obj.settings || typeof obj.settings !== 'object'){
+    throw new Error('That is not a Bliss settings backup file.');
+  }
+  let n = 0;
+  for (const [k, v] of Object.entries(obj.settings)){
+    if (typeof v !== 'string') continue;
+    localStorage.setItem(k, v); n++;
+  }
+  const when = obj.savedAt ? obj.savedAt.slice(0, 10) : 'an earlier date';
+  logLine(`Restored ${n} setting${n === 1 ? '' : 's'} from a backup saved on ${when}.`);
+  return { count: n, savedAt: obj.savedAt, savedFrom: obj.savedFrom };
+}
+
 // ===== Self-updater =====
 // GitHub Pages serves the app cache-first through sw.js, so without this a user
 // would keep the cached build until a hard-refresh. checkForAppUpdate compares
@@ -253,6 +331,13 @@ function showWhatsNewModal(groups){
 // feature — earlier releases never stored the value) just establishes the
 // baseline silently: the release that INTRODUCES the notice cannot announce it.
 function maybeShowWhatsNew(){
+  // Preference wins, but the record still advances below — someone who turns the
+  // notice off should not be shown a backlog of old releases if they turn it on.
+  if (!getShowWhatsNew()){
+    const s = getLastSeenRelease();
+    if (s == null || s < APP_RELEASE) setLastSeenRelease(APP_RELEASE);
+    return;
+  }
   const seen = getLastSeenRelease();
   if (seen == null){ setLastSeenRelease(APP_RELEASE); return; }   // baseline, no notice
   if (seen >= APP_RELEASE) return;                                // already current
@@ -269,6 +354,15 @@ function maybeShowWhatsNew(){
   setLastSeenRelease(APP_RELEASE);                                // record before showing (a reload can't re-trigger)
   showWhatsNewModal(groups);
 }
+
+// Test hooks for the migration rehearsal — the backup/restore path cannot be
+// driven through an OS file dialog from an automated browser, so it is exercised
+// through these. See BTS-MIGRATION-TEST-PLAN.docx.
+window.__settingsBackup  = () => settingsBackupObject();
+window.__settingsRestore = (obj) => restoreSettingsBackup(
+  new File([JSON.stringify(obj)], 'backup.json', { type: 'application/json' }));
+window.__getShowWhatsNew = () => getShowWhatsNew();
+window.__setShowWhatsNew = (v) => setShowWhatsNew(v);
 
 // ===== SCAD-file update (this app's designer .scad in the user's folder) =====
 // The user carries a local copy of this app's designer .scad (scadBaseName) in
@@ -3483,6 +3577,32 @@ const SETTINGS_PANELS = {
       </div>
     </div>
   `,
+
+  prefs: () => `
+    <div class="setting">
+      <label>Notices</label>
+      <div style="margin-bottom:14px;">
+        <label style="font-weight:normal; display:flex; gap:7px; align-items:flex-start; cursor:pointer;">
+          <input type="checkbox" id="prefWhatsNew" style="margin-top:2px;" ${getShowWhatsNew() ? 'checked' : ''}>
+          <span>Show &ldquo;What&rsquo;s new&rdquo; after the app updates itself</span>
+        </label>
+      </div>
+
+      <label>Your settings</label>
+      <div style="margin-bottom:8px;">
+        Save a copy of your settings to a file you keep, or put a saved copy back.
+        Your settings are stored by your browser against this app&rsquo;s web address,
+        so a saved copy is what lets you move them to another computer &mdash; or get
+        them back if this browser is ever cleared.
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+        <button id="prefSaveBtn" type="button" class="primary">Save my settings&hellip;</button>
+        <button id="prefLoadBtn" type="button">Load saved settings&hellip;</button>
+        <input id="prefLoadInput" type="file" accept="application/json,.json" hidden>
+      </div>
+      <p id="prefMsg" style="margin:0; min-height:1.2em; color:var(--muted);"></p>
+    </div>
+  `,
 };
 
 // The .scad in play is the one read from the connected folder, so before a
@@ -3494,7 +3614,50 @@ function scadVersionLabel(){
 
 const settingsOverlay = document.getElementById('settings-overlay');
 const settingsPanelEl = document.getElementById('settings-panel');
-function renderSettingsPanel(cat){ settingsPanelEl.innerHTML = (SETTINGS_PANELS[cat] || SETTINGS_PANELS.about)(); }
+function renderSettingsPanel(cat){
+  settingsPanelEl.innerHTML = (SETTINGS_PANELS[cat] || SETTINGS_PANELS.about)();
+  wireSettingsPanel(cat);
+}
+
+// The panel's markup is replaced on every render, so its controls must be wired
+// each time rather than once at startup.
+function wireSettingsPanel(cat){
+  if (cat !== 'prefs') return;
+  const msgEl  = document.getElementById('prefMsg');
+  const setMsg = (t, bad) => { if (msgEl){ msgEl.textContent = t; msgEl.style.color = bad ? '#b3261e' : 'var(--muted)'; } };
+
+  document.getElementById('prefWhatsNew').addEventListener('change', e => {
+    setShowWhatsNew(e.target.checked);
+    setMsg(e.target.checked
+      ? 'The notice will appear after the next update.'
+      : 'The notice is turned off.');
+  });
+
+  document.getElementById('prefSaveBtn').addEventListener('click', () => {
+    try {
+      const n = saveSettingsBackup();
+      setMsg(`Saved ${n} item${n === 1 ? '' : 's'} to bliss-settings-backup.json. Keep it somewhere you will find it.`);
+    } catch (e){ setMsg('Could not save your settings: ' + e.message, true); }
+  });
+
+  const input = document.getElementById('prefLoadInput');
+  document.getElementById('prefLoadBtn').addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const f = input.files && input.files[0];
+    input.value = '';                       // so the same file can be chosen again
+    if (!f) return;
+    try {
+      const r = await restoreSettingsBackup(f);
+      renderSettingsPanel('prefs');         // reflect restored values in the controls
+      const el = document.getElementById('prefMsg');
+      if (el){
+        el.textContent = `Restored ${r.count} item${r.count === 1 ? '' : 's'}` +
+          (r.savedAt ? ` from the copy saved on ${r.savedAt.slice(0,10)}.` : '.') +
+          ' Reload the app if anything still looks unchanged.';
+      }
+    } catch (e){ setMsg(e.message, true); }
+  });
+}
 function openSettings(){
   const cats = [...document.querySelectorAll('#settings-cats .cat')];
   const active = cats.find(c => c.classList.contains('active')) || cats[0];
