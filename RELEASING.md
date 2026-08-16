@@ -91,15 +91,32 @@ only advances when there was something to show. Don't reintroduce an uncondition
 Four release streams (two apps + two designer `.scad`s), **`bts` = Bliss Tactile Symbols,
 `btp` = Bliss Tiles and Puzzles** (Ken, 2026-07-24):
 
-| Phrase | Releases |
-|---|---|
-| **"bump bts web app"** | the **Bliss Tactile Symbols** web app (`symbols/`) |
-| **"bump btp web app"** | the **Bliss Tiles and Puzzles** web app (`tiles/`) |
-| **"bump bts"** | the **Bliss Tactile Symbols** designer `.scad` (separate repo) |
-| **"bump btp"** | the **Bliss Tiles and Puzzles** designer `.scad` (separate repo) |
+| Phrase | Releases | Goes to |
+|---|---|---|
+| **"bump bts web app"** | the **Bliss Tactile Symbols** web app (`symbols/`) | `origin` → **bts.volksswitch.org** |
+| **"bump btp web app"** | the **Bliss Tiles and Puzzles** web app (`tiles/`) | `origin` → **bts.volksswitch.org** |
+| **"bump OLD bts web app"** | the same app on the **retiring** address | `legacy` → **volksswitch.github.io/bliss-tactile-symbols-web/** |
+| **"bump OLD btp web app"** | the same app on the **retiring** address | `legacy` → same |
+| **"bump bts"** | the **Bliss Tactile Symbols** designer `.scad` (separate repo) | scad repo |
+| **"bump btp"** | the **Bliss Tiles and Puzzles** designer `.scad` (separate repo) | scad repo |
 
-⚠️ Within each pair the short phrase is a **prefix** of the long one (`bump bts` ⊂ `bump bts
-web app`; `bump btp` ⊂ `bump btp web app`) — read the whole phrase before acting.
+⚠️ **The word "old" is the whole instruction** (Ken, 2026-08-16). Ken inserts it when he
+means the retiring address: *"bts web app means new; old bts web app means old."* Note the
+trap — **"bump old bts web app" CONTAINS "bump bts web app"**, so skimming for the familiar
+phrase inside the longer one deploys to the wrong address. Deploying new-app content to the
+retiring address would put the black icons there and destroy the visual distinction the whole
+migration depends on; deploying the other way round is worse. **Read the whole phrase, and
+check which remote you are pushing to.**
+
+⚠️ Within each pair the short phrase is also a **prefix** of the long one (`bump bts` ⊂ `bump
+bts web app`; `bump btp` ⊂ `bump btp web app`) — read the whole phrase before acting.
+
+**Two remotes, one working copy.** `origin` is the new repo (`Volksswitch/bts-web-app`,
+serving `bts.volksswitch.org`); `legacy` is the retiring one
+(`Volksswitch/bliss-tactile-symbols-web`). They share history to the "Release … 21 and … 12"
+commit and have diverged since. **Never push `main` to `legacy`** — the old app takes only
+`shared/bts-core.js`, `shared/app-body.html` and `shared/bts.css`, on its own branch, keeping
+its green icons, its teal title bar, its old icon filenames and its own release line.
 
 Ken says the phrase **only after he has verified that app's `CHANGELOG.md`.** That single
 command authorizes the ritual below **through the push** for that app.

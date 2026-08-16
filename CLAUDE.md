@@ -755,7 +755,14 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   live in a **SEPARATE repo** (`Volksswitch/bliss-tactile-symbols`, constant `SCAD_REPO` in
   `app.html`) so the `.scad` releases **independently** of the app — a `.scad` publish never
   redeploys the app and an app release never touches the `.scad`. That repo has its own
-  `RELEASING.md` + `publish-scad-version.mjs`. **Four trigger phrases** (Ken, 2026-07-24; `bts` = Bliss
+  `RELEASING.md` + `publish-scad-version.mjs`. **⚠️ SIX trigger phrases now — the word "old" selects the retiring address**
+  (Ken, 2026-08-16): *"bts web app means new; old bts web app means old."* So **"bump bts web
+  app"** releases to `bts.volksswitch.org` (remote `origin`, repo `bts-web-app`) and **"bump
+  OLD bts web app"** releases to the retiring `volksswitch.github.io/bliss-tactile-symbols-web/`
+  (remote `legacy`). The trap: **"bump old bts web app" CONTAINS "bump bts web app"** — skim
+  past the "old" and you deploy to the wrong address, which would put the black
+  domain-based icons on the retiring app and destroy the distinction the migration relies on.
+  Read the whole phrase and check the remote. **Four original phrases** (Ken, 2026-07-24; `bts` = Bliss
   Tactile Symbols, `btp` = Bliss Tiles and Puzzles) — and within each pair the short phrase is a
   **prefix** of the long one, so read the whole phrase before acting: **"bump bts web app"** /
   **"bump btp web app"** release the two web apps (`symbols/` / `tiles/` in this repo);
