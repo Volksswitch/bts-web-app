@@ -7,11 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 17
+
 - If the app ever opens with no settings at all — on a new computer, or after
   your browser has been cleared — it now offers to load a saved settings file
   right there on the opening screen, instead of quietly starting from scratch.
 
-## Release 17
 
 ## Release 16
 
