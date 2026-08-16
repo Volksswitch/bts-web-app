@@ -116,6 +116,13 @@ The ritual (let `<app>` = `symbols` or `tiles`):
    for both, e.g. after a shared change).
 5. **Update the manifest:** `node scripts/publish-app-version.mjs <app>` — writes the deployed
    `appRelease` into `<app>/latest_app_version.json`. Confirm the number matches.
+   - ℹ️ Since 2026-08-15 the app fetches this manifest from **its own origin** (the same Pages
+     deploy that served the app), not from `raw.githubusercontent.com`. So the app and its
+     manifest now ship **atomically in one push** and cannot disagree. That is why steps 6–7
+     are a single commit and a single push, and why the "push the app, wait for it to be
+     served, *then* push the manifest" split recommended for the keyguard rehearsal is **not**
+     needed here. Previously the two came from different CDNs that updated in an unpredictable
+     order, which could tell a client to fetch a release that was not being served yet.
 6. **Commit** the release (`<app>/sw.js`, `<app>/index.html`, `<app>/CHANGELOG.md`,
    `<app>/latest_app_version.json`, plus any `shared/*` and the other app's `sw.js` if a shared
    file changed) as one commit.

@@ -48,12 +48,36 @@ const capFirst = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 
 const APP_RELEASE = APP_CONFIG.appRelease;
 
-// The GitHub repo that hosts this app (GitHub Pages serves its `main`). Both the
-// self-update manifest URL and the "you're up to date" logic derive from it, so
-// this is the single place to change if the repo is renamed.
-// ⚠️ Confirm this matches the real repo before the first public deploy.
-const APP_REPO = APP_CONFIG.appRepo;
-const APP_MANIFEST_URL = `https://raw.githubusercontent.com/${APP_REPO}/main/${APP_CONFIG.appDir}/latest_app_version.json`;
+// NOTE: `APP_CONFIG.appRepo` is now INFORMATIONAL ONLY — it records where the app
+// is published but nothing reads it, because the update manifest is no longer
+// fetched from GitHub (see below). Changing it has no runtime effect.
+//
+// The app's own update manifest, served from THIS origin by the same deploy that
+// served this app — deliberately NOT from raw.githubusercontent.com any more.
+// Two reasons, both load-bearing (Ken, 2026-08-15):
+//
+// 1. REACHABILITY. The whole point of moving to bts.volksswitch.org is that K-12
+//    filters block GitHub. A filter that blocks `*.github.io` very likely blocks
+//    raw.githubusercontent.com too — so a clinician behind one would get a working
+//    app that can never discover an update, silently and forever (a failed check is
+//    a deliberate no-op). Serving the manifest from our own origin means the update
+//    channel is reachable exactly when the app itself is.
+//
+// 2. IT KILLS THE RELEASE RACE. raw.githubusercontent.com is a different CDN from
+//    Pages, and the two update at unpredictable times relative to each other —
+//    measured on the keyguard rehearsal, the manifest LED the deploy by 45 s once
+//    and LAGGED it by 150 s minutes later (LEARNINGS Finding 2). When the manifest
+//    leads, clients are told to fetch a release that is not being served yet, burn
+//    their one loop-guard attempt, and give up (Finding 4). Same-origin, the app and
+//    its manifest ship in ONE deploy and cannot disagree — which also retires the
+//    two-push release split in RELEASING.md.
+//
+// Relative on purpose: resolved against the document, so it lands on
+// `<wherever this app is served>/latest_app_version.json` — correct both at
+// `/symbols/` on a subdomain and at `/<repo>/symbols/` on github.io. The worker
+// does not cache it (it is not in SHELL), and the fetch is `no-store` with a
+// cache-buster, so a stale copy cannot mask a new release.
+const APP_MANIFEST_URL = './latest_app_version.json';
 
 // SCAD-file update (parallel to the app self-update, but for the designer .scad
 // this app owns — the one the user carries in their connected folder). The

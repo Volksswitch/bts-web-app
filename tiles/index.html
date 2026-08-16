@@ -38,7 +38,7 @@
     svgSplitDestDirs: ['Basic SVG files', 'Puzzle SVG files'], // …and saves the components into one of these
     exportFallback:   'bliss-tile',                            // last-resort export name (no preset/graphic)
     appRelease:       13,
-    appRepo:          'Volksswitch/bliss-tactile-symbols-web', // same repo as Symbols
+    appRepo:          'Volksswitch/bts-web-app',                // same repo as Symbols
     appDir:           'tiles',
     scadRepo:         'Volksswitch/bliss-tactile-symbols',     // same repo, separate manifest ↓
     scadManifestFile: 'latest_tiles_version.json',
@@ -88,6 +88,9 @@
   "12": [
     "\"Slot Gap\" is now set in millimeters, to a tenth of a millimeter, instead of in tenths of a millimeter — so a 0.4 mm gap is typed as 0.4 rather than 4. Your concepts file has been converted, so the gaps your saved concepts print are unchanged. \"Move Lines Vertically\" has been removed. (Needs version 7 or later of the tile and puzzle designer file.)",
     "Fixed: the \"What's new\" notice could go missing on the very update it was meant to describe, leaving you with nothing but the start page appearing twice. The app was putting the notice up on the old build, a moment before the update reloaded the page — so the notice was swept away, and it counted as read. It now waits until the app has finished checking for an update, and appears on the new build."
+  ],
+  "13": [
+    "Updates are now more reliable. The app used to look up its version information on GitHub — a site some school and workplace networks block outright, and one that could briefly disagree with the app itself just after a release. It now reads that information from its own web address, so it always matches the app you are actually running, and it keeps working on networks that block GitHub."
   ]
 };
   // @@RELEASE_NOTES_END@@

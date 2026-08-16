@@ -60,7 +60,7 @@
     svgSplitDestDirs: ['Bliss SVG files', 'Basic SVG files', 'Puzzle SVG files'],
     exportFallback:   'bliss-symbol',
     appRelease:       22,
-    appRepo:          'Volksswitch/bliss-tactile-symbols-web',
+    appRepo:          'Volksswitch/bts-web-app',
     appDir:           'symbols',
     scadRepo:         'Volksswitch/bliss-tactile-symbols',
     scadManifestFile: 'latest_scad_version.json',
@@ -137,6 +137,9 @@
   "21": [
     "\"Diameter Of Hole\" and \"Move Hole Vertically\" can now be set to a tenth of a millimeter instead of a whole one. (Needs version 4 or later of the symbol designer file.)",
     "Fixed: the \"What's new\" notice could go missing on the very update it was meant to describe, leaving you with nothing but the start page appearing twice. The app was putting the notice up on the old build, a moment before the update reloaded the page — so the notice was swept away, and it counted as read. It now waits until the app has finished checking for an update, and appears on the new build."
+  ],
+  "22": [
+    "Updates are now more reliable. The app used to look up its version information on GitHub — a site some school and workplace networks block outright, and one that could briefly disagree with the app itself just after a release. It now reads that information from its own web address, so it always matches the app you are actually running, and it keeps working on networks that block GitHub."
   ]
 };
   // @@RELEASE_NOTES_END@@

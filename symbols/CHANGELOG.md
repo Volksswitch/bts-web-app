@@ -7,6 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Updates are now more reliable. The app used to look up its version information
+  on GitHub — a site some school and workplace networks block outright, and one
+  that could briefly disagree with the app itself just after a release. It now
+  reads that information from its own web address, so it always matches the app
+  you are actually running, and it keeps working on networks that block GitHub.
+
 ## Release 21
 
 - "Diameter Of Hole" and "Move Hole Vertically" can now be set to a tenth of a
