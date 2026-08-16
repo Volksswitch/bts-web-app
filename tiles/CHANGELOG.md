@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 16
+
 - If the app ever seems stuck on an old version, Settings → Preferences now has
   “Reload the app cleanly”. Use that rather than a hard refresh — a hard refresh
   skips past the app entirely and can lose your settings. The old advice to press
