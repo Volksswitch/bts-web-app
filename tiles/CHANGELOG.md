@@ -7,6 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 19
+
+- A test of the update system: this release exists only to check that Bliss Tiles
+  and Puzzles updates itself and shows its own notes, separately from Bliss
+  Tactile Symbols. Nothing about designing tiles or puzzles has changed.
+
 ## Release 18
 
 - Fixed, important: saving a copy of your settings, and the move to the new web

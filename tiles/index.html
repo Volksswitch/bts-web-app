@@ -37,7 +37,7 @@
     svgSplitSourceDirs: ['Bliss SVG files'],                   // Split-Graphic reads whole symbols from here
     svgSplitDestDirs: ['Basic SVG files', 'Puzzle SVG files'], // …and saves the components into one of these
     exportFallback:   'bliss-tile',                            // last-resort export name (no preset/graphic)
-    appRelease:       18,
+    appRelease:       19,
     appRepo:          'Volksswitch/bts-web-app',                // same repo as Symbols
     appDir:           'tiles',
     scadRepo:         'Volksswitch/bliss-tactile-symbols',     // same repo, separate manifest ↓
@@ -108,6 +108,9 @@
   ],
   "18": [
     "Fixed, important: saving a copy of your settings, and the move to the new web address, could pick up information belonging to OTHER Volksswitch apps that share the same web address — including private details and an access key. Both now handle only this app's own settings and nothing else. If you saved a settings file before today, delete it and save a fresh one."
+  ],
+  "19": [
+    "A test of the update system: this release exists only to check that Bliss Tiles and Puzzles updates itself and shows its own notes, separately from Bliss Tactile Symbols. Nothing about designing tiles or puzzles has changed."
   ]
 };
   // @@RELEASE_NOTES_END@@
