@@ -7,6 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 20
+
+- A second test of the update system for Bliss Tiles and Puzzles, to check that
+  this app shows its own notice with its own release number. Nothing about
+  designing tiles or puzzles has changed.
+
 ## Release 19
 
 - A test of the update system: this release exists only to check that Bliss Tiles

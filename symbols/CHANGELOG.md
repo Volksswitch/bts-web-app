@@ -7,6 +7,11 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 29
+
+- A second test of the update system, to check that the notice itself appears
+  when you have asked to see it. Nothing about designing symbols has changed.
+
 ## Release 28
 
 - A test of the update system: this release exists only to check that the app
