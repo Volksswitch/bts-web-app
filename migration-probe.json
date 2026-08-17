@@ -1,6 +1,6 @@
 {
-  "ready": false,
-  "note": "DISARMED 17 Aug 2026 \u2014 settings carry correctly to INSTALLED apps (Chrome, both apps) but NOT to TAB clients (Edge, both apps). Unexplained. Do not re-arm until reproduced and fixed; C5 on machine 2 is a tab client and must not be spent.",
+  "ready": true,
+  "note": "ARMED. The retiring app moves people across as they open it. Set ready back to false to stop that immediately -- anyone already moved stays moved, but nobody new is taken. No DNS or release is involved either way.",
   "newOrigin": "https://bts.volksswitch.org",
-  "armedAt": "2026-08-17 (re-armed after the payload-leak fix)"
+  "armedAt": "2026-08-17 (re-armed after the Edge clear-on-close finding; see ORIGIN-MIGRATION-STATE.md section 20)"
 }
