@@ -37,7 +37,7 @@
     svgSplitSourceDirs: ['Bliss SVG files'],                   // Split-Graphic reads whole symbols from here
     svgSplitDestDirs: ['Basic SVG files', 'Puzzle SVG files'], // …and saves the components into one of these
     exportFallback:   'bliss-tile',                            // last-resort export name (no preset/graphic)
-    appRelease:       17,
+    appRelease:       18,
     appRepo:          'Volksswitch/bts-web-app',                // same repo as Symbols
     appDir:           'tiles',
     scadRepo:         'Volksswitch/bliss-tactile-symbols',     // same repo, separate manifest ↓
@@ -105,6 +105,9 @@
   ],
   "17": [
     "If the app ever opens with no settings at all — on a new computer, or after your browser has been cleared — it now offers to load a saved settings file right there on the opening screen, instead of quietly starting from scratch."
+  ],
+  "18": [
+    "Fixed, important: saving a copy of your settings, and the move to the new web address, could pick up information belonging to OTHER Volksswitch apps that share the same web address — including private details and an access key. Both now handle only this app's own settings and nothing else. If you saved a settings file before today, delete it and save a fresh one."
   ]
 };
   // @@RELEASE_NOTES_END@@

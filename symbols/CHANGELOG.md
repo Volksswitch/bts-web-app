@@ -7,6 +7,14 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 27
+
+- Fixed, important: saving a copy of your settings, and the move to the new web
+  address, could pick up information belonging to OTHER Volksswitch apps that
+  share the same web address — including private details and an access key.
+  Both now handle only this app's own settings and nothing else. If you saved a
+  settings file before today, delete it and save a fresh one.
+
 ## Release 26
 
 - If the app ever opens with no settings at all — on a new computer, or after

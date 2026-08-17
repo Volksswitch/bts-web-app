@@ -75,6 +75,22 @@ const MIGRATION = (() => {
 // migration payload AND from a cross-address restore. Everything else travels.
 const migrationExcluded = k => k.startsWith('bts_last_seen_release');
 
+// ⚠ SECURITY. Only ever carry keys belonging to THESE TWO APPS.
+//
+// The original rule was "every key stored at this address", chosen so migrating
+// Symbols would bring Tiles along. That was wrong, and dangerously so: this
+// address is shared by every Volksswitch app ever published to
+// volksswitch.github.io. Conversant AAC lived there before it moved; the keyguard
+// designer still does. So the payload swept up an Anthropic API key, a real
+// person's name, home address, phone number and email, and keyguard's settings —
+// and put them in a URL. Found 17 Aug 2026 on the first real client, which failed
+// with "URI Too Long"; the length was the symptom, not the bug.
+//
+// Both apps prefix their keys `bts_`, so this still carries Tiles along — the
+// whole point of the original rule — while never touching anything that is not
+// ours. Anything added later MUST use that prefix to travel.
+const isOursToCarry = k => k.startsWith('bts_') && !migrationExcluded(k);
+
 // Probe before moving anyone: a blind redirect strands every user whose new
 // address is not serving yet. A REAL CORS fetch requiring an explicit
 // `ready:true` — never `mode:'no-cors'`, whose opaque response resolves even on
@@ -102,7 +118,7 @@ function migrationPayload(){
   const ls = {};
   for (let i = 0; i < localStorage.length; i++){
     const k = localStorage.key(i);
-    if (migrationExcluded(k)) continue;
+    if (!isOursToCarry(k)) continue;
     ls[k] = localStorage.getItem(k);
   }
   return btoa(unescape(encodeURIComponent(JSON.stringify({
@@ -126,10 +142,14 @@ async function maybeMigrateOrigin(){
   }
   const payload = migrationPayload();
   await migrationTearDown();
+  // The payload rides in the FRAGMENT (#), which browsers never transmit to a
+  // server — so it cannot land in an access log or a proxy, and cannot trip the
+  // server's URL length limit. Only `from` and `via` go in the query string.
   const here = MIGRATION.newPathFor(location.pathname) + location.search;
   const sep  = here.includes('?') ? '&' : '?';
   location.replace(MIGRATION.NEW_ORIGIN + here + sep +
-    `from=${encodeURIComponent(location.origin)}&via=page&s=${encodeURIComponent(payload)}`);
+    `from=${encodeURIComponent(location.origin)}&via=page` +
+    `#s=${encodeURIComponent(payload)}`);
   return true;
 }
 
@@ -145,12 +165,16 @@ const MIGRATION_ARRIVAL = (() => {
   if (!from) return null;
   const via = q.get('via') || 'unknown';
   const restored = [];
-  const s = q.get('s');
+  // Fragment first; the query is the fallback for a client still running the
+  // build that sent it there.
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const s = hash.get('s') || q.get('s');
   if (s){
     try {
       const d = JSON.parse(decodeURIComponent(escape(atob(s))));
       for (const [k, v] of Object.entries(d.ls || {})){
-        if (migrationExcluded(k)) continue;              // belt and braces
+        // Refuse anything that is not ours even if an older sender included it.
+        if (!isOursToCarry(k)) continue;
         if (localStorage.getItem(k) === null){ localStorage.setItem(k, v); restored.push(k); }
       }
       console.log(`[migration] arrived from ${from} via ${via}; restored ${restored.length} key(s):`, restored);
@@ -307,9 +331,13 @@ function setShowWhatsNew(on){ try { localStorage.setItem(LS_SHOW_WHATSNEW, on ? 
 const SETTINGS_BACKUP_KIND = 'bliss-settings-backup';
 
 function settingsBackupObject(){
+  // Same rule as the migration payload, and for the same reason — this writes a
+  // FILE to the user's disk, so sweeping up another app's API key or personal
+  // data would be worse here, not better. See isOursToCarry.
   const settings = {};
   for (let i = 0; i < localStorage.length; i++){
     const k = localStorage.key(i);
+    if (!k.startsWith('bts_')) continue;      // release history DOES belong in a backup
     settings[k] = localStorage.getItem(k);
   }
   return {
@@ -358,6 +386,8 @@ async function restoreSettingsBackup(file){
   let n = 0, skipped = 0;
   for (const [k, v] of Object.entries(obj.settings)){
     if (typeof v !== 'string') continue;
+    // An older backup may contain other apps' data. Never write it back.
+    if (!k.startsWith('bts_')){ skipped++; continue; }
     if (crossAddress && migrationExcluded(k)){ skipped++; continue; }
     localStorage.setItem(k, v); n++;
   }

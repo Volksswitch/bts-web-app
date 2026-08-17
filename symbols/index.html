@@ -59,7 +59,7 @@
     svgSplitSourceDirs: ['Bliss SVG files'],
     svgSplitDestDirs: ['Bliss SVG files', 'Basic SVG files', 'Puzzle SVG files'],
     exportFallback:   'bliss-symbol',
-    appRelease:       26,
+    appRelease:       27,
     appRepo:          'Volksswitch/bts-web-app',
     appDir:           'symbols',
     scadRepo:         'Volksswitch/bliss-tactile-symbols',
@@ -154,6 +154,9 @@
   ],
   "26": [
     "If the app ever opens with no settings at all — on a new computer, or after your browser has been cleared — it now offers to load a saved settings file right there on the opening screen, instead of quietly starting from scratch."
+  ],
+  "27": [
+    "Fixed, important: saving a copy of your settings, and the move to the new web address, could pick up information belonging to OTHER Volksswitch apps that share the same web address — including private details and an access key. Both now handle only this app's own settings and nothing else. If you saved a settings file before today, delete it and save a fresh one."
   ]
 };
   // @@RELEASE_NOTES_END@@
