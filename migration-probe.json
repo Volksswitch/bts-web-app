@@ -1,6 +1,0 @@
-{
-  "ready": true,
-  "note": "ARMED. The retiring app moves people across as they open it. Set ready back to false to stop that immediately -- anyone already moved stays moved, but nobody new is taken. No DNS or release is involved either way.",
-  "newOrigin": "https://bts.volksswitch.org",
-  "armedAt": "2026-08-17 (re-armed after the Edge clear-on-close finding; see ORIGIN-MIGRATION-STATE.md section 20)"
-}

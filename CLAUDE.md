@@ -236,6 +236,17 @@ git worktree add "%TEMP%\bts-legacy" legacy-main
 git worktree remove "%TEMP%\bts-legacy"
 ```
 
+**The origin migration is OVER and its code is GONE from both apps** (Ken, 2026-08-18). The move to
+`bts.volksswitch.org` is complete, Ken is the only user, and he cleared removing every part of it —
+including the arrival half, which had been marked "keep for years". Removed: the departure redirect
+and its readiness probe (`migration-probe.json`, deleted), the arrival hand-over that unpacked a
+payload out of the address bar, the "please save a copy of your settings" bar that only ever showed
+on the retiring address, the just-moved variant of the launch-gate wording, and the matching test
+hooks. **Kept deliberately:** the Save/Load settings feature and the offer to load a saved file when
+the app has nothing stored — those are general insurance against a cleared browser or a new machine,
+not migration scaffolding. Also kept: the release tooling for the retiring address (see above), since
+the "we have moved" page is still served from it.
+
 **The connected folder is the user's own and is unknowable from disk.** At runtime the app reads
 the `.scad`/`.json`/SVGs from whichever folder the user picks via File System Access; the handle
 lives only in IndexedDB (`bts-db`/`handles`/`folder`). Never infer which folder that is from a
@@ -886,15 +897,6 @@ units ballooned ~5×. Keep offsets that must be a fixed physical size **outside*
 ⚠️ **`bliss.scad` is read once, when the folder is opened**, into the in-memory `SCAD_TEXT`, so
 editing it requires **reconnecting the folder** (or reloading `app.html` and re-opening) to take
 effect — a re-render alone reuses `SCAD_TEXT`. The read is straight from the folder handle (no HTTP
-⚠️ **Never hard-reload on the RETIRING address (`volksswitch.github.io/bliss-tactile-symbols-web/`)
-during the migration rehearsal.** It bypasses the service worker, and on a test client that is
-the one action that can destroy the state the test depends on — and those client states are
-one-shot (see `ORIGIN-MIGRATION-STATE.md` §14 and the before-state record). Hard-reloading on
-localhost or on `bts.volksswitch.org` is fine. In the app itself the user-facing advice is gone:
-Settings → Preferences has **"Reload the app cleanly"**, which migrates first if a move is due and
-only then clears caches — clearing them first would remove the very thing that carries the
-hand-over.
-
 cache in play), but the reload of `app.html` itself can still be cache-served — hard-reload when
 verifying app-code changes.
 
@@ -1156,6 +1158,18 @@ scheme must not restyle the app. Ken asked for icons; the interior was deliberat
 
 ## Working conventions
 
+- **Never make a user think about how to refresh** (Ken, 2026-08-18). Nobody using our apps
+  should have to know that two kinds of reload exist, or be told to clear their browser. The
+  app owns that problem: Settings → Preferences has one plainly-named **"Reload the app"**
+  button that retires the cached copy and starts fresh. Ken’s companion rule from the
+  migration: **never write a step that asks a user to clear the cache for one website** — he
+  could not find a way to do it at anything narrower than whole-browser scope, and that is the
+  normal experience. If a stale copy has to go, the app removes it.
+- **Update notices are not optional** (Ken, 2026-08-18). "What’s new" always appears after the
+  app updates itself; there is no preference to switch it off. The old checkbox existed to serve
+  the migration test and is exactly what blinded four of its checks (ORIGIN-MIGRATION-STATE §21),
+  so removing it closes that hazard as well as simplifying the panel. The Save/Load settings
+  buttons stay — real preferences are coming.
 - **American English everywhere** (Ken, 2026-07-23). All new text — UI strings, code comments,
   `CHANGELOG.md` bullets, this file, and anything Claude writes in chat — uses American spelling
   ("color", "center", "behavior", "normalize"). Existing British spellings scattered through the

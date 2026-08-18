@@ -7,6 +7,19 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 22
+
+- What's new now always appears after the app updates itself. The setting that let
+  you switch it off has been removed — an update is worth a moment of your time,
+  and it is the only place the app tells you what changed.
+- The button that starts the app fresh is now simply called “Reload the app”, and
+  it is the one to use whenever the app looks wrong or seems stuck. You do not
+  need to know anything about refreshing, or about clearing your browser.
+- The app no longer carries the machinery that moved it to its new web address.
+  That move is finished, so the reminder bar asking you to save your settings, and
+  the hand-over that ran when you arrived, have both been retired. Loading a saved
+  settings file is unchanged and still offered when the app has nothing stored.
+
 ## Release 21
 
 - Your saved copy of your settings now goes into your folder, beside your concepts

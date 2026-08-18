@@ -83,9 +83,16 @@ for (const app of ['symbols', 'tiles']) {
   }
 }
 
-// The probe belongs at the NEW address; the old app fetches it from there.
-check(target === 'new' ? has('migration-probe.json') : true,
-  'migration-probe.json is missing', 'The retiring app reads this from the new address to know whether to move anyone.');
+// The migration is over (18 Aug 2026) and its code — including the readiness
+// probe the retiring app used to fetch from the new address — has been removed
+// from both apps. This guard used to require `migration-probe.json` at the NEW
+// address and so refused every release the moment that file was deleted: correct
+// code, wrong moment, which is exactly how it failed at the go-live push (see
+// ORIGIN-MIGRATION-STATE.md §22). A guard must know every legitimate state of
+// the world, including the terminal one, or it teaches you to override it.
+check(!has('migration-probe.json'),
+  'migration-probe.json is back',
+  'The migration is finished and its code is gone from both apps. Nothing should be arming a move.');
 
 // --- report ------------------------------------------------------------------
 if (fails.length) {
