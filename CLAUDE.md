@@ -212,15 +212,17 @@ nothing committed/deployed.**
 The sections below describe the Symbols app's behavior — now the shared engine's behavior; file/line
 references predating the extraction point into what is now `shared/bts-core.js`.
 
-## The only two folders in play
+## The folders in play — two for development, plus one live-page worktree
 
-Development touches **exactly two** folders. Nothing else on the machine is part of this work —
-do not read from, write to, or reason about any other path, and do not go looking for one.
+Development touches **exactly two** folders, and a third exists only to publish the retiring
+address's farewell page. Nothing else on the machine is part of this work — do not read from,
+write to, or reason about any other path, and do not go looking for one.
 
 | Folder | What it is |
 |---|---|
 | `BTS web app/` | This repo — the two app shells (`symbols/`, `tiles/`), the shared engine (`shared/`), vendored deps, change control. |
 | `bliss-tactile-symbols/` | The separate repo — canonical `.scad` + `latest_scad_version.json` only. Released independently; see below. The starter `.json` / `SVG files/` are **not** there (deleted 2026-07-22): they ship as a ZIP from the Volksswitch website, so there is no local corpus of concepts or Blissymbols to consult. |
+| `BTS web app - legacy page/` | ⚠️ **A git worktree of THIS repo on branch `legacy-main`**, not a separate project. It is the working copy for the **retiring** address (`volksswitch.github.io/bliss-tactile-symbols-web/`), which now serves the "we have moved" page; its remote is **`legacy`**, never `origin`. Moved here 17 Aug 2026 out of a temp scratchpad that was not guaranteed to survive. Touch it only to edit that page, then release with **"bump OLD bts web app"**. It carries a `WHAT-THIS-FOLDER-IS.md` marker (locally ignored, never committed). Goes away on its own timeline — `ORIGIN-MIGRATION-STATE.md` §10, §16.5. |
 
 Other folders may exist on disk with similar names. They are **not** ours: they are not sources of
 truth, not validation corpora, and not the app's connected folder. Leave them alone.
