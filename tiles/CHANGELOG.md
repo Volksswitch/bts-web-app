@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 21
+
 - Your saved copy of your settings now goes into your folder, beside your concepts
   and graphics, instead of into your downloads. It always uses the same name and
   saving again replaces it, so there is only ever one copy and it is the current
