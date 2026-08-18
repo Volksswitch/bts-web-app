@@ -7,6 +7,12 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- Your saved copy of your settings now goes into your folder, beside your concepts
+  and graphics, instead of into your downloads. It always uses the same name and
+  saving again replaces it, so there is only ever one copy and it is the current
+  one. "Load saved settings" looks there first and simply loads it; only if it is
+  not there are you asked to find it.
+
 ## Release 20
 
 - A second test of the update system for Bliss Tiles and Puzzles, to check that

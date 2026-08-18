@@ -317,7 +317,7 @@ function getShowWhatsNew(){ return localStorage.getItem(LS_SHOW_WHATSNEW) !== 'n
 function setShowWhatsNew(on){ try { localStorage.setItem(LS_SHOW_WHATSNEW, on ? 'yes' : 'no'); } catch {} }
 
 // ===== Save / load settings =====
-// Origin-independent, download-based insurance. It exists because browser
+// Origin-independent insurance. It exists because browser
 // storage is bound to the web address that created it: moving the app to
 // bts.volksswitch.org starts from an empty store, and nothing is inherited.
 // The automatic hand-over covers most people, but not someone who cleared their
@@ -348,23 +348,86 @@ function settingsBackupObject(){
   };
 }
 
-// Download rather than write into the connected folder: a folder is not always
-// connected, the folder belongs to a project while settings sit above it, and a
-// download works on a locked-down machine with no folder access at all.
-function saveSettingsBackup(){
+// The backup lives in the CONNECTED FOLDER, under ONE standard name, overwritten
+// in place (Ken, 17 Aug 2026). Both halves of that are deliberate:
+//
+//  • THE FOLDER, not Downloads. Downloads separates the file conceptually from
+//    the work it belongs to, and people empty Downloads without looking — so the
+//    file whose whole purpose is to still be there months later is exactly the
+//    one that gets swept away. In the folder it also rides OneDrive to the user's
+//    other machines by itself, which is the "set up a second computer from a
+//    saved copy" case the restore offer was written for.
+//
+//  • ONE STANDARD NAME, overwritten silently. Settings are a STATE, not a work:
+//    there is only ever one current set, and a backup is a snapshot you want
+//    refreshed, not collected. That is why this does NOT follow Create-Graphic's
+//    always-Save-As rule, and the difference is not an inconsistency — for a
+//    graphic, accumulating files is the safeguard; for settings, accumulating
+//    "(2)", "(3)" copies with no way to tell which is current IS the failure
+//    mode. Do not reintroduce date-stamps: the name being predictable is what
+//    makes the restore fallback tractable months later.
+//
+// Two machines sharing the folder over OneDrive overwrite each other and the
+// last writer wins. Accepted (Ken) — they are one user's own settings.
+//
+// Falls back to a download when no folder is connected: the backup notice can
+// appear before a folder has ever been picked, and a locked-down machine may
+// have no folder access at all.
+const SETTINGS_BACKUP_FILE = 'bliss-settings-backup.json';
+
+async function saveSettingsBackup(){
   const obj  = settingsBackupObject();
   const n    = Object.keys(obj.settings).length;
-  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const text = JSON.stringify(obj, null, 2);
+
+  if (folder && folder.dir && await ensureRW(folder.dir)){
+    const fh = await folder.dir.getFileHandle(SETTINGS_BACKUP_FILE, { create: true });
+    const w  = await fh.createWritable();
+    await w.write(text);
+    await w.close();
+    logLine(`Saved your settings (${n} item${n === 1 ? '' : 's'}) to ${SETTINGS_BACKUP_FILE} in ${folder.dir.name}.`);
+    return { n, where: 'folder', dirName: folder.dir.name };
+  }
+
+  // No folder, or write permission refused — a download still protects them.
+  const blob = new Blob([text], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url;
-  a.download = 'bliss-settings-backup.json';
+  a.download = SETTINGS_BACKUP_FILE;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
-  logLine(`Saved a copy of your settings (${n} item${n === 1 ? '' : 's'}).`);
-  return n;
+  logLine(`Saved your settings (${n} item${n === 1 ? '' : 's'}) to your downloads.`);
+  return { n, where: 'download' };
+}
+
+// Restore looks in the connected folder FIRST. For the great majority of users
+// the file is simply there and that is the whole interaction — 95% of keyguard
+// users have only one project folder (Ken, 17 Aug 2026), and BTS has exactly
+// one. The dialog below is the rare fallback and must not shape the feature.
+async function readBackupFromFolder(){
+  if (!(folder && folder.dir)) return null;
+  try { return await (await folder.dir.getFileHandle(SETTINGS_BACKUP_FILE)).getFile(); }
+  catch { return null; }        // absent (or unreadable) — ask the user instead
+}
+
+// ⚠ An OPEN dialog's filename box CANNOT be pre-filled by any browser API —
+// only SAVE dialogs take a suggested name. So the substitute is to name the file
+// on screen before opening the dialog, and to anchor the dialog on the connected
+// folder so the user starts from the right place rather than wherever they were
+// last. Returns null when the browser has no file-picker API, so the caller can
+// fall back to the hidden <input type=file>. Throws AbortError if cancelled.
+async function pickBackupFile(){
+  if (!window.showOpenFilePicker) return null;
+  const opts = {
+    multiple: false,
+    types: [{ description: 'Settings backup', accept: { 'application/json': ['.json'] } }],
+  };
+  if (folder && folder.dir) opts.startIn = folder.dir;
+  const [fh] = await window.showOpenFilePicker(opts);
+  return fh.getFile();
 }
 
 // Restore OVERWRITES. This is a deliberate, user-initiated action — unlike the
@@ -578,9 +641,9 @@ function showBackupNotice(force){
 function wireBackupNotice(){
   const el = document.getElementById('backupNotice');
   if (!el) return;
-  document.getElementById('backupNoticeSave').addEventListener('click', () => {
+  document.getElementById('backupNoticeSave').addEventListener('click', async () => {
     try {
-      saveSettingsBackup();
+      await saveSettingsBackup();
       localStorage.setItem(LS_BACKED_UP, 'yes');    // recorded only on success
       el.hidden = true;
     } catch (e){
@@ -677,6 +740,8 @@ window.__settingsPresent  = () => settingsPresent();
 window.__backupNoticeDue  = () => backupNoticeDue();
 window.__cleanReload      = () => cleanReload();
 window.__settingsBackup  = () => settingsBackupObject();
+window.__saveSettingsBackup   = () => saveSettingsBackup();
+window.__readBackupFromFolder = () => readBackupFromFolder();
 window.__migration       = () => ({ ...MIGRATION, arrival: MIGRATION_ARRIVAL });
 window.__migrationPayload= () => JSON.parse(decodeURIComponent(escape(atob(migrationPayload()))));
 window.__probeReady      = () => migrationTargetReady();
@@ -3911,10 +3976,12 @@ const SETTINGS_PANELS = {
 
       <label>Your settings</label>
       <div style="margin-bottom:8px;">
-        Save a copy of your settings to a file you keep, or put a saved copy back.
-        Your settings are stored by your browser against this app&rsquo;s web address,
-        so a saved copy is what lets you move them to another computer &mdash; or get
-        them back if this browser is ever cleared.
+        Save a copy of your settings, or put a saved copy back. The copy is kept
+        in your folder as <b>bliss-settings-backup.json</b>, beside your concepts and
+        graphics, and saving again replaces it. Your settings themselves are held by
+        your browser against this app&rsquo;s web address, so the saved copy is what lets
+        you move them to another computer &mdash; or get them back if this browser is
+        ever cleared.
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
         <button id="prefSaveBtn" type="button" class="primary">Save my settings&hellip;</button>
@@ -3961,10 +4028,13 @@ function wireSettingsPanel(cat){
       : 'The notice is turned off.');
   });
 
-  document.getElementById('prefSaveBtn').addEventListener('click', () => {
+  document.getElementById('prefSaveBtn').addEventListener('click', async () => {
     try {
-      const n = saveSettingsBackup();
-      setMsg(`Saved ${n} item${n === 1 ? '' : 's'} to bliss-settings-backup.json. Keep it somewhere you will find it.`);
+      const r = await saveSettingsBackup();
+      setMsg(r.where === 'folder'
+        ? `Saved ${r.n} item${r.n === 1 ? '' : 's'} as ${SETTINGS_BACKUP_FILE} in your ${r.dirName} folder.`
+        : `Saved ${r.n} item${r.n === 1 ? '' : 's'} as ${SETTINGS_BACKUP_FILE} in your downloads. `
+          + `Connect your folder and save again to keep it beside your work.`);
     } catch (e){ setMsg('Could not save your settings: ' + e.message, true); }
   });
 
@@ -3974,21 +4044,43 @@ function wireSettingsPanel(cat){
   });
 
   const input = document.getElementById('prefLoadInput');
-  document.getElementById('prefLoadBtn').addEventListener('click', () => input.click());
+
+  // One place that applies a chosen file, so the folder path and the dialog path
+  // cannot drift apart in what they do or what they say.
+  async function applyBackupFile(f, fromFolder){
+    const r = await restoreSettingsBackup(f);
+    renderSettingsPanel('prefs');           // reflect restored values in the controls
+    const el = document.getElementById('prefMsg');
+    if (el){
+      el.textContent = `Restored ${r.count} item${r.count === 1 ? '' : 's'}`
+        + (fromFolder ? ` from ${SETTINGS_BACKUP_FILE} in your folder` : '')
+        + (r.savedAt ? `, saved on ${r.savedAt.slice(0,10)}.` : '.')
+        + ' Reload the app if anything still looks unchanged.';
+    }
+  }
+
+  // Look in the folder first; only ask if it is not there. See readBackupFromFolder.
+  document.getElementById('prefLoadBtn').addEventListener('click', async () => {
+    try {
+      const here = await readBackupFromFolder();
+      if (here){ await applyBackupFile(here, true); return; }
+      // Name the file BEFORE opening the dialog — the dialog itself cannot say it.
+      setMsg(`No ${SETTINGS_BACKUP_FILE} in your folder — find your saved copy.`);
+      const picked = await pickBackupFile();
+      if (picked){ await applyBackupFile(picked, false); return; }
+      input.click();                        // no file-picker API — old-style dialog
+    } catch (e){
+      if (e && e.name === 'AbortError'){ setMsg(''); return; }   // they cancelled
+      setMsg(e.message, true);
+    }
+  });
+
   input.addEventListener('change', async () => {
     const f = input.files && input.files[0];
     input.value = '';                       // so the same file can be chosen again
     if (!f) return;
-    try {
-      const r = await restoreSettingsBackup(f);
-      renderSettingsPanel('prefs');         // reflect restored values in the controls
-      const el = document.getElementById('prefMsg');
-      if (el){
-        el.textContent = `Restored ${r.count} item${r.count === 1 ? '' : 's'}` +
-          (r.savedAt ? ` from the copy saved on ${r.savedAt.slice(0,10)}.` : '.') +
-          ' Reload the app if anything still looks unchanged.';
-      }
-    } catch (e){ setMsg(e.message, true); }
+    try { await applyBackupFile(f, false); }
+    catch (e){ setMsg(e.message, true); }
   });
 }
 function openSettings(){
