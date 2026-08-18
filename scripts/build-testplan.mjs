@@ -15,20 +15,31 @@
 //   node scripts/build-testplan.mjs
 //   node scripts/build-testplan.mjs some/other/path.docx
 //
-// Needs the `docx` npm package, which is installed globally on this machine and
-// is NOT resolvable by default — hence the NODE_PATH below.
+// Needs the `docx` npm package, which is installed GLOBALLY on this machine and
+// is not resolvable from here by default.
+//
+// ⚠ Setting process.env.NODE_PATH at runtime does NOT work — Node reads NODE_PATH
+// once at process start, so assigning it inside the script is too late and the
+// require below fails with MODULE_NOT_FOUND. It was written that way and did not
+// run at all (found 17 Aug 2026). Resolve the global folder explicitly instead,
+// while still preferring a local install if one ever appears.
 
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-process.env.NODE_PATH = process.env.NODE_PATH ||
-  join(process.env.APPDATA || '', 'npm', 'node_modules');
 const require = createRequire(import.meta.url);
+function loadDocx(){
+  try { return require('docx'); } catch {}
+  const globalAnchor = join(process.env.APPDATA || '', 'npm', 'node_modules', 'anchor.js');
+  try { return createRequire(globalAnchor)('docx'); } catch {}
+  console.error('\n  ✗ The docx package is not installed.  Run: npm install -g docx\n');
+  process.exit(1);
+}
 
 const {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
   Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle,
   PageOrientation, LevelFormat, PageBreak,
-} = require('docx');
+} = loadDocx();
 const fs = require('fs');
 
 const OUT_DEFAULT = join(process.env.OneDrive || '', '4 T-Z', 'Volksswitch', 'BTS-MIGRATION-TEST-PLAN.docx');
@@ -139,6 +150,15 @@ const doc = new Document({
 new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: 'Origin Migration — Test Plan', bold: true, size: 40, color: '1F3864' })] }),
 new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: 'Bliss Tactile Symbols & Bliss Tiles and Puzzles', size: 26, color: '2E5496' })] }),
 new Paragraph({ spacing: { after: 240 }, children: [new TextRun({ text: 'The rehearsal for the Keyguard Designer migration  ·  16 August 2026', size: 19, italics: true, color: '666666' })] }),
+
+new Table({
+  columnWidths: [W],
+  width: { size: W, type: WidthType.DXA },
+  rows: [new TableRow({ children: [cell([
+    { t: 'THIS RUN IS FINISHED. Do not execute it against Bliss Tactile Symbols again.', bold: true },
+    { t: ' The BTS/BTP migration completed on 17 August 2026: the old address no longer serves the app, so steps 1 to 4 cannot run there and would only confuse. This document is retained as the TEMPLATE for the Keyguard Designer migration — read section 8 first, then adapt. Its findings are recorded in ORIGIN-MIGRATION-STATE.md, sections 20 to 23.', break: 1 },
+  ], W, { fill: WARN })] })],
+}),
 
 P('This is the one realistic rehearsal we get. The Keyguard Designer is the migration that matters — real clinicians, settings they tuned over months, and the blocked-school problem that started all of this. Bliss Tactile Symbols and Bliss Tiles and Puzzles are the same architecture with only Ken as a user, so every scenario can be walked through deliberately and the surprises found here instead of there.', { after: 160 }),
 
@@ -384,7 +404,7 @@ tc([
   ['4.0', 'FIRST close everything: both installed apps on machine 1, and the Edge tab. THEN tell Claude: “arm the migration”', 'Nothing is left running anywhere. The flag at the new address is switched to ready. Claude confirms the flag reads ready and that the retiring app can see it.',
    'Closing first is not tidiness. The move only happens when an app STARTS UP — so clicking the icon of an app that is already running just brings its window forward, nothing reloads, and nothing migrates. It looks exactly like a failure. Machine 2 was already closed at 3.4.'],
   ['4.1', 'Machine 1, Chrome — open the installed Symbols app', 'It arrives at the NEW address and stays in its own window. SETTINGS: your unticked box is still unticked. AND: no “What’s new” notice appears at all.',
-   'A “What’s new” notice here is a FAILURE, even though a notice normally means things are working. Seeing notes for releases 23–26 would mean the record of what you had read travelled with you, which must not happen — the two addresses number their releases separately.'],
+   'A “What’s new” notice here is a FAILURE, even though a notice normally means things are working. Seeing notes for releases 23–26 would mean the record of what you had read travelled with you, which must not happen — the two addresses number their releases separately.  ⚠ BUT READ THIS BEFORE RECORDING A PASS: the marker set at step 1.4 IS the setting that suppresses this notice, so on this client no notice can appear for any reason and “no notice” proves NOTHING. It passed vacuously on the BTS run. See section 8 for the fix — keyguard must not use its notice preference as the carried marker.'],
   ['4.2', 'Look at the window frame', 'An address strip has appeared that was never there before, because the icon still points at the old address. Expected, not a fault.'],
   ['4.3', 'Read what the opening screen asks you to do', 'It says the app has moved, that your settings came with you, and asks you to open your folder once more. It explains why without alarming you.'],
   ['4.4', 'Open your folder again', 'Your concepts and graphics are all present. SETTINGS: still intact afterwards.'],
@@ -422,7 +442,7 @@ tc([
   ['6.4', 'Now load the OLD-address backup saved at step 1.7 instead', 'Your settings come back.',
    'Expect FEWER items restored than the file contains. The record of which releases you had read is deliberately left behind when a backup crosses addresses. That is correct, not a fault.'],
   ['6.5', 'Close the tab and open the app again', 'NO “What’s new” notice appears.',
-   'This is the check that the release record did not ride across inside the backup. If you see notes for releases 23 onwards, it did — the same fault as step 4.1, reached by a different route. No new release is needed to see this.'],
+   'This is the check that the release record did not ride across inside the backup. If you see notes for releases 23 onwards, it did — the same fault as step 4.1, reached by a different route. No new release is needed to see this.  ⚠ SAME DEFECT AS 4.1: this client carries the unticked marker, so the notice is switched off and cannot appear whatever the truth is. Vacuous as written. Fix it the same way — see section 8.'],
   ['6.6', 'Load the same file a second time', 'Nothing is duplicated or corrupted.'],
 ]),
 
@@ -456,6 +476,19 @@ table([
 
 // ============================================================ 8
 H('8.  What this tells us about the Keyguard Designer', HeadingLevel.HEADING_1),
+new Table({
+  columnWidths: [W],
+  width: { size: W, type: WidthType.DXA },
+  rows: [new TableRow({ children: [cell([
+    { t: 'DO THIS FIRST when adapting the plan: do NOT use the “Show What’s new” preference as the carried marker.', bold: true },
+    { t: ' That single choice broke four checks on the BTS run — 4.1, 5.1, 5.2 and 6.5 — because the setting being carried is the same setting that suppresses the notice those steps observe. Every one of them appeared to pass while being incapable of failing.', break: 1 },
+    { t: 'For keyguard the fix is trivial and costs nothing: it has 21 settings, so pick any OTHER one as the marker and leave the notice switched ON. Then 4.1 and 6.5 mean what they say — no notice on arrival proves the release record stayed behind, and a run of old release notes is a real, visible failure. BTS could not do this because it had exactly one user-visible setting, which is why the collision was structural rather than careless.', break: 1 },
+    { t: 'Related trap, same area: when the notice is switched off the app still ADVANCES its record of what you have read. So a release published while it is off is spent permanently — switching the notice back on does not bring it back, and you must publish another release to see one. That cost an extra release on the BTS run.', break: 1 },
+  ], W, { fill: WARN })] })],
+}),
+
+P('', { after: 60 }),
+
 bullet('Keyguard has 21 settings against these apps’ one. Everything the tests above prove about carrying a single setting applies unchanged, but the cost of getting it wrong is 21 times larger.'),
 bullet('Keyguard’s remembered list of recent projects cannot be exported or restored by any backup. Test 4.4 will not cover it, and no test can — it is a known, accepted loss.'),
 bullet('Keyguard has two addresses that both open the app, and only one of them is saved for offline use. That mattered enormously under the old “everyone at once” plan. Under this plan it should not matter at all — step 4.6 is the closest equivalent, and if it passes, the concern can be closed.'),
