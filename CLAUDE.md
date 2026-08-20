@@ -225,16 +225,11 @@ do not read from, write to, or reason about any other path, and do not go lookin
 Other folders may exist on disk with similar names. They are **not** ours: they are not sources of
 truth, not validation corpora, and not the app's connected folder. Leave them alone.
 
-**Editing the retiring address's "we have moved" page** needs a checkout of branch `legacy-main`
-(remote **`legacy`**, never `origin`). There is deliberately **no permanent second folder** for it —
-a worktree was tried on 17 Aug 2026 and removed the same day as unearned overhead. Create one only
-if the page actually needs changing, and remove it afterwards:
-
-```bat
-git worktree add "%TEMP%\bts-legacy" legacy-main
-:: edit, commit, then:  git push legacy legacy-main:main   ("bump OLD bts web app")
-git worktree remove "%TEMP%\bts-legacy"
-```
+**The retiring address is GONE (20 Aug 2026).** `Volksswitch/bliss-tactile-symbols-web` was
+deleted once the move was complete and its only user — Ken — had crossed; the `legacy` remote
+was removed with it. There is no "we have moved" page to edit and nowhere to push one.
+**Branch `legacy-main` is kept as history** and is now the only copy of the retired app (100
+commits, ending at that page). Leave it alone — it is not a release target.
 
 **The origin migration is OVER and its code is GONE from both apps** (Ken, 2026-08-18). The move to
 `bts.volksswitch.org` is complete, Ken is the only user, and he cleared removing every part of it —
@@ -777,14 +772,12 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   live in a **SEPARATE repo** (`Volksswitch/bliss-tactile-symbols`, constant `SCAD_REPO` in
   `app.html`) so the `.scad` releases **independently** of the app — a `.scad` publish never
   redeploys the app and an app release never touches the `.scad`. That repo has its own
-  `RELEASING.md` + `publish-scad-version.mjs`. **⚠️ SIX trigger phrases now — the word "old" selects the retiring address**
-  (Ken, 2026-08-16): *"bts web app means new; old bts web app means old."* So **"bump bts web
-  app"** releases to `bts.volksswitch.org` (remote `origin`, repo `bts-web-app`) and **"bump
-  OLD bts web app"** releases to the retiring `volksswitch.github.io/bliss-tactile-symbols-web/`
-  (remote `legacy`). The trap: **"bump old bts web app" CONTAINS "bump bts web app"** — skim
-  past the "old" and you deploy to the wrong address, which would put the black
-  domain-based icons on the retiring app and destroy the distinction the migration relies on.
-  Read the whole phrase and check the remote. **Four original phrases** (Ken, 2026-07-24; `bts` = Bliss
+  `RELEASING.md` + `publish-scad-version.mjs`. **⚠️ FOUR trigger phrases — the two "bump OLD …"
+  ones are RETIRED (20 Aug 2026)**, along with the address they released to. There is now one
+  address, `bts.volksswitch.org` (remote `origin`, repo `bts-web-app`), so the 2026-08-16 trap —
+  **"bump old bts web app" CONTAINS "bump bts web app"** — can no longer bite: the familiar
+  phrase is the only phrase. `check-release-target.mjs old` refuses with an explanation rather
+  than failing at the push. **The four phrases** (Ken, 2026-07-24; `bts` = Bliss
   Tactile Symbols, `btp` = Bliss Tiles and Puzzles) — and within each pair the short phrase is a
   **prefix** of the long one, so read the whole phrase before acting: **"bump bts web app"** /
   **"bump btp web app"** release the two web apps (`symbols/` / `tiles/` in this repo);

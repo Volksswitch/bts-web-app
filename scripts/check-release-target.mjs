@@ -1,21 +1,22 @@
 #!/usr/bin/env node
 // check-release-target.mjs — refuse a release that is pointed at the wrong address.
 //
-// One working copy now has TWO remotes serving TWO addresses:
-//   origin  -> Volksswitch/bts-web-app                 -> bts.volksswitch.org   (the new home)
-//   legacy  -> Volksswitch/bliss-tactile-symbols-web   -> volksswitch.github.io/... (retiring)
+// There is now ONE remote and ONE address:
+//   origin  -> Volksswitch/bts-web-app  -> bts.volksswitch.org
 //
-// They must NOT be interchangeable. The retiring app keeps its GREEN icons and
-// teal title bar; black means "served from volksswitch.org", and that distinction
-// is what stops a user confusing two identically-named installed apps during the
-// migration. Deploying either app's content to the other's address destroys it.
+// It used to be two. The retiring address (Volksswitch/bliss-tactile-symbols-web,
+// served at volksswitch.github.io/...) was DELETED on 20 Aug 2026 once the move was
+// complete and its only user -- Ken -- had crossed. The 'old' target and the "bump
+// OLD ..." trigger phrases went with it. Asking for 'old' is now refused with an
+// explanation rather than quietly failing at the push.
 //
-// The trigger phrases make this easy to get wrong: "bump OLD bts web app"
-// CONTAINS "bump bts web app", so skimming for the familiar phrase inside the
-// longer one picks the wrong target. "Read carefully" is not a control -- this is.
+// What survives is the icon check. Black icons mean "served from volksswitch.org";
+// the retiring app's GREEN icon files must never reappear in this tree, because
+// their presence means the wrong branch is checked out -- `legacy-main` still holds
+// the retired app locally.
 //
-//   node scripts/check-release-target.mjs new     # about to push to origin
-//   node scripts/check-release-target.mjs old     # about to push to legacy
+//   node scripts/check-release-target.mjs        # about to push to origin
+//   node scripts/check-release-target.mjs new    # the same thing, spelled out
 //
 // Exits non-zero and explains itself if the working tree does not match.
 
@@ -24,9 +25,20 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const target = (process.argv[2] || '').toLowerCase();
-if (!['new', 'old'].includes(target)) {
-  console.error('usage: check-release-target.mjs <new|old>');
+const target = (process.argv[2] || 'new').toLowerCase();
+if (target === 'old') {
+  console.error('');
+  console.error('  ✗ There is no "old" release target any more.');
+  console.error('');
+  console.error('  The retiring address (Volksswitch/bliss-tactile-symbols-web) was deleted');
+  console.error('  on 20 Aug 2026 -- the move to bts.volksswitch.org is finished and its only');
+  console.error('  user had already crossed. The "bump OLD ..." phrases are retired with it.');
+  console.error('  The retired app itself survives on the local branch `legacy-main`.');
+  console.error('');
+  process.exit(2);
+}
+if (target !== 'new') {
+  console.error('usage: check-release-target.mjs [new]');
   process.exit(2);
 }
 
@@ -43,13 +55,6 @@ const EXPECT = {
     forbiddenIcons: ['icons/icon-192.png', 'icons/icon-512.png'],
     theme: '#000000', themeName: 'black',
     repo: 'Volksswitch/bts-web-app',
-  },
-  old: {
-    label: 'the RETIRING address (volksswitch.github.io/bliss-tactile-symbols-web/, remote "legacy")',
-    iconFiles: ['icons/icon-192.png', 'icons/icon-512.png'],
-    forbiddenIcons: ['icons/symbols-192.png', 'icons/tiles-192.png'],
-    theme: '#2b8a80', themeName: 'teal',
-    repo: 'Volksswitch/bliss-tactile-symbols-web',
   },
 }[target];
 
@@ -98,8 +103,8 @@ check(!has('migration-probe.json'),
 if (fails.length) {
   console.error(`\n  ✗ REFUSING: this working tree is not what ${EXPECT.label} should hold.\n`);
   fails.forEach((f, i) => console.error(`  ${i + 1}. ${f}\n`));
-  console.error('  Nothing has been pushed. Check which release you meant:');
-  console.error('  "bump bts web app" = NEW,  "bump OLD bts web app" = RETIRING.\n');
+  console.error('  Nothing has been pushed. Check what is in the working tree —');
+  console.error('  a green icon here means the retired branch is checked out.\n');
   process.exit(1);
 }
 console.log(`  ✓ working tree matches ${EXPECT.label}`);

@@ -13,9 +13,8 @@ Designer web app's (*work locally, log each user-visible change to that app's
   local `main` branch on the PC. **These commits are NOT pushed.** OneDrive backs them
   up and syncs the whole project folder (including `.git`) across machines.
 - **GitHub is the release environment.** The repository is
-  <https://github.com/Volksswitch/bliss-tactile-symbols-web> ⚠️ *(confirm the exact
-  repo name — it is also hardcoded as `appRepo` in each shell's `APP_CONFIG`; they must
-  match).* **GitHub Pages serves the `main` branch.**
+  <https://github.com/Volksswitch/bts-web-app> — it is also hardcoded as `appRepo` in each
+  shell's `APP_CONFIG`; they must match. **GitHub Pages serves the `main` branch.**
 
   > **Commit to local `main` = save your work.  Push `main` = release.**
 
@@ -95,28 +94,25 @@ Four release streams (two apps + two designer `.scad`s), **`bts` = Bliss Tactile
 |---|---|---|
 | **"bump bts web app"** | the **Bliss Tactile Symbols** web app (`symbols/`) | `origin` → **bts.volksswitch.org** |
 | **"bump btp web app"** | the **Bliss Tiles and Puzzles** web app (`tiles/`) | `origin` → **bts.volksswitch.org** |
-| **"bump OLD bts web app"** | the same app on the **retiring** address | `legacy` → **volksswitch.github.io/bliss-tactile-symbols-web/** |
-| **"bump OLD btp web app"** | the same app on the **retiring** address | `legacy` → same |
 | **"bump bts"** | the **Bliss Tactile Symbols** designer `.scad` (separate repo) | scad repo |
 | **"bump btp"** | the **Bliss Tiles and Puzzles** designer `.scad` (separate repo) | scad repo |
 
-⚠️ **The word "old" is the whole instruction** (Ken, 2026-08-16). Ken inserts it when he
-means the retiring address: *"bts web app means new; old bts web app means old."* Note the
-trap — **"bump old bts web app" CONTAINS "bump bts web app"**, so skimming for the familiar
-phrase inside the longer one deploys to the wrong address. Deploying new-app content to the
-retiring address would put the black icons there and destroy the visual distinction the whole
-migration depends on; deploying the other way round is worse. **Read the whole phrase, and
-check which remote you are pushing to.**
+> **The two "bump OLD …" phrases are RETIRED (20 Aug 2026).** They released to the old
+> address, and that repository has been deleted — the move is finished and its only user had
+> already crossed. With it goes the trap Ken flagged on 2026-08-16, that *"bump old bts web
+> app" contains "bump bts web app"*: there is now one address, so the familiar phrase can no
+> longer be the wrong one. `check-release-target.mjs old` refuses with an explanation rather
+> than failing at the push. **The retired app itself is not lost** — it survives on the local
+> branch `legacy-main`, which is now its only copy.
 
 ⚠️ Within each pair the short phrase is also a **prefix** of the long one (`bump bts` ⊂ `bump
 bts web app`; `bump btp` ⊂ `bump btp web app`) — read the whole phrase before acting.
 
-**Two remotes, one working copy.** `origin` is the new repo (`Volksswitch/bts-web-app`,
-serving `bts.volksswitch.org`); `legacy` is the retiring one
-(`Volksswitch/bliss-tactile-symbols-web`). They share history to the "Release … 21 and … 12"
-commit and have diverged since. **Never push `main` to `legacy`** — the old app takes only
-`shared/bts-core.js`, `shared/app-body.html` and `shared/bts.css`, on its own branch, keeping
-its green icons, its teal title bar, its old icon filenames and its own release line.
+**One remote, one address.** `origin` is `Volksswitch/bts-web-app`, serving
+`bts.volksswitch.org`. It was two until 20 Aug 2026; the `legacy` remote was removed when its
+repository was deleted. Branch `legacy-main` remains locally and still holds the retired app —
+green icons, teal title bar, its own release line, ending at the "we have moved" page. It has
+nowhere to be pushed and is kept as history.
 
 Ken says the phrase **only after he has verified that app's `CHANGELOG.md`.** That single
 command authorizes the ritual below **through the push** for that app.
