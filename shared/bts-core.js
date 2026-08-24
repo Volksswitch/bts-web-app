@@ -3247,11 +3247,18 @@ async function deletePreset(){
 // diversity of a set intact. Bliss Concept Type is excluded because it encodes
 // grammatical type in the body shape — one value across a set erases that; the
 // Graphic File and Symbol Text are excluded because they ARE the symbol. Also
-// excluded (Ken, 2026-08-23) are the per-symbol nudges — rotate/slide text,
-// slide braille, move hole — which exist to fix the one symbol that needs fixing
-// and have no business being stamped across a set, and the two display colors,
-// which are viewport-only and never reach the printed object. Slide Center
-// Velcro Vertically IS included: where the mount sits is a whole-set decision.
+// excluded (Ken, 2026-08-23) are the per-symbol nudges — rotate text, slide text
+// sideways, slide braille sideways, move hole — which exist to fix the one symbol
+// that needs fixing and have no business being stamped across a set, and the two
+// display colors, which are viewport-only and never reach the printed object.
+//
+// ⚠️ VERTICAL slides are IN, HORIZONTAL ones are OUT, and that split is the rule
+// rather than a list of exceptions. Slide Center Velcro Vertically (where the mount
+// sits), Slide Text Vertically and Slide Braille Vertically (how high the word and
+// the braille sit on the symbol) are all decisions about the whole set — every
+// symbol in a set should carry them at the same height. Sliding text or braille
+// SIDEWAYS stays out: that is centering a particular word against a particular
+// graphic, which is per-symbol by nature.
 //
 // Adding one here is safe only if it passes that test. It must also be a param
 // the .scad actually declares — a name with no matching param is ignored.
@@ -3260,8 +3267,8 @@ const STYLE_PARAMS = [
   'embed_RFID_tag', 'embed_magnets', 'add_velcro_mounts',
   'add_center_velcro_mount', 'center_velcro_size', 'slide_center_velcro_vertically',
   'graphic_height', 'include_earth_and_sky_lines',
-  'engrave_text', 'text_location', 'font_style', 'text_height',
-  'include_braille', 'braille_location', 'braille_size_multiplier',
+  'engrave_text', 'text_location', 'font_style', 'text_height', 'slide_text_vertically',
+  'include_braille', 'braille_location', 'braille_size_multiplier', 'slide_braille_vertically',
   'add_hole_for_string', 'direction_of_hole', 'location_of_hole', 'diameter_of_hole',
 ];
 const STYLE_PARAM_SET = new Set(STYLE_PARAMS);

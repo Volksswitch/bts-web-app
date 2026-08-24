@@ -843,8 +843,8 @@ A style may only carry settings that **leave the diversity of a set intact**. Th
 *Symbol Info* — Symbol Thickness, Resize Symbol Height Width, Embed RFID Tag, Embed Magnets, Add
 Velcro Mounts, Add Center Velcro Mount, Center Velcro Size, Slide Center Velcro Vertically.
 *Graphic Info* — Graphic Height, Include Earth And Sky Lines.
-*Symbol Text and Braille* — Engrave Text, Text Location, Font Style, Text Height, Include Braille,
-Braille Location, Braille Size Multiplier.
+*Symbol Text and Braille* — Engrave Text, Text Location, Font Style, Text Height, Slide Text
+Vertically, Include Braille, Braille Location, Braille Size Multiplier, Slide Braille Vertically.
 *Hole for String* — Add Hole For String, Direction Of Hole, Location Of Hole, Diameter Of Hole.
 
 **Excluded, and these exclusions are the whole point:**
@@ -852,11 +852,17 @@ Braille Location, Braille Size Multiplier.
 - **Bliss Concept Type** — it encodes grammatical type in the body shape. One value across a set
   erases exactly the distinction the shape exists to carry (Ken's own example).
 - **Graphic File** and **Symbol Text** — they *are* the symbol.
-- **The per-symbol nudges** — Rotate Text, Slide Text Horizontally/Vertically, Slide Braille
-  Horizontally/Vertically, Move Hole Vertically (Ken, 2026-08-23). These exist to fix the one symbol
-  that needs fixing, so stamping them across a set is never what anyone means. ⚠️ Note the deliberate
-  asymmetry: **Slide Center Velcro Vertically IS included** — where the mount sits is a decision
-  about the whole set, not a per-symbol correction.
+- **The per-symbol nudges** — Rotate Text, Slide Text Horizontally, Slide Braille Horizontally,
+  Move Hole Vertically (Ken, 2026-08-23). These exist to fix the one symbol that needs fixing, so
+  stamping them across a set is never what anyone means.
+  - ⚠️ **VERTICAL slides are IN, HORIZONTAL ones are OUT — that split is the RULE, not a list of
+    exceptions.** **Slide Center Velcro Vertically** (where the mount sits), **Slide Text
+    Vertically** and **Slide Braille Vertically** (how high the word and the braille sit) are all
+    decisions about the whole set — every symbol in a set should carry them at the same height.
+    Sliding text or braille **sideways** stays out: that is centering a particular word against a
+    particular graphic, which is per-symbol by nature. *(Both vertical text/braille slides were cut
+    in the first pass and Ken put them back on 2026-08-24 — "I shouldn't have taken Slide text
+    vertically out." Released in Symbols 33.)*
 - **Symbol Display Color / Graphic Display Color** — viewport-only, never reach the printed object.
 - **Remove Bliss Indicators** — raised as borderline and left out: the indicator carries meaning, so
   forcing one answer across a set could quietly change what some symbols say.
