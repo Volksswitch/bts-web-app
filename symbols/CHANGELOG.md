@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 33
+
 - A style can now also carry **Slide Text Vertically** and **Slide Braille
   Vertically**, so a whole set can have its word and its braille sit at the same
   height on every symbol. Sliding either one sideways is still left out — that is
