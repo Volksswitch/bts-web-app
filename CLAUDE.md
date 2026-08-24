@@ -819,6 +819,129 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
 
 ---
 
+## Styles — named sets of finishing settings (Ken, 2026-08-23)
+
+A **style** is a named collection of settings laid over the concept currently selected, changing how
+a symbol is finished and mounted without touching what makes it that symbol. The purpose is to make
+a **second SET of symbols from an existing set**: switch a style on, step through the concepts, and
+each one comes out with the same mounting and finishing while keeping its own artwork, shape and
+word. **Symbols only** — Tiles' concepts hold values that are unique per concept, so a shared style
+has nothing to give it (Ken, 2026-08-23); `APP_CONFIG.stylesEnabled` is set in `symbols/index.html`
+alone and the Settings tab is removed at boot when it is absent.
+
+- **The name is "style", and "override" is banned.** "Override" describes the mechanism, not the
+  purpose. **"Profile" was rejected outright** — it already means something specific in OpenSCAD,
+  where this app's equivalent structure is the **concept**. (Also weighed and dropped: *Finish*,
+  which stretches over thickness and overall size; *Variation*, vague; *Trim*, insider jargon; and
+  *Treatment*, which collides with the concept vocabulary — `hydrotherapy`, `music therapy`.)
+
+### The 21 settings a style may carry, and why only these
+
+A style may only carry settings that **leave the diversity of a set intact**. The list lives in
+`STYLE_PARAMS` in `bts-core.js` and adding to it is only safe if the addition passes that test.
+
+*Symbol Info* — Symbol Thickness, Resize Symbol Height Width, Embed RFID Tag, Embed Magnets, Add
+Velcro Mounts, Add Center Velcro Mount, Center Velcro Size, Slide Center Velcro Vertically.
+*Graphic Info* — Graphic Height, Include Earth And Sky Lines.
+*Symbol Text and Braille* — Engrave Text, Text Location, Font Style, Text Height, Include Braille,
+Braille Location, Braille Size Multiplier.
+*Hole for String* — Add Hole For String, Direction Of Hole, Location Of Hole, Diameter Of Hole.
+
+**Excluded, and these exclusions are the whole point:**
+
+- **Bliss Concept Type** — it encodes grammatical type in the body shape. One value across a set
+  erases exactly the distinction the shape exists to carry (Ken's own example).
+- **Graphic File** and **Symbol Text** — they *are* the symbol.
+- **The per-symbol nudges** — Rotate Text, Slide Text Horizontally/Vertically, Slide Braille
+  Horizontally/Vertically, Move Hole Vertically (Ken, 2026-08-23). These exist to fix the one symbol
+  that needs fixing, so stamping them across a set is never what anyone means. ⚠️ Note the deliberate
+  asymmetry: **Slide Center Velcro Vertically IS included** — where the mount sits is a decision
+  about the whole set, not a per-symbol correction.
+- **Symbol Display Color / Graphic Display Color** — viewport-only, never reach the printed object.
+- **Remove Bliss Indicators** — raised as borderline and left out: the indicator carries meaning, so
+  forcing one answer across a set could quietly change what some symbols say.
+
+**Text and braille look like content but are not.** The engraved word and the braille are both
+generated from each symbol's own `symbol_text`, so a style that turns them on gives every symbol its
+*own* word — which is why the seven text/braille settings are safe.
+
+### A style names only what it carries
+
+Each of the 21 sits behind a tick box. **Unticked means the concept keeps its own answer** — the
+style writes only what it names. That is the deliberate difference from switching concepts, which
+writes *every* user-facing param (see the preset section above). Ticking a setting starts it at the
+**program default** (`SCAD_DEFAULTS`, the same values "design default values" restores), Ken's call.
+
+### Conflicts are checked as the style is BUILT, not as it is applied (Ken, 2026-08-23)
+
+Magnets and a string hole cannot coexist — but Ken's point is that **options like these are normally
+set for all symbols of a set**, so a coherent style carries *both halves* of the decision (magnets
+yes **and** hole no) and applying it **resolves** the clash instead of causing one. So the only
+conflicts left are the ones inside the style itself, and `styleWarnings()` reports them on the tab
+while the person who can fix them is looking at it. Never move this to apply-time — that would nag
+on every concept switch about a decision already made once. It also flags a style that adds magnets
+while saying *nothing* about the hole, and RFID/braille asking for a symbol thinner than 6/8 mm.
+
+### The Apply toggle, and where it deliberately is NOT
+
+**Applying is a mode, not an action, so the toggle lives on the Styles tab** — not beside the
+Concepts bar (Ken, 2026-08-23). It is switched on for a run of work rather than competing with
+Save/New/Delete in the main pane.
+
+- **Switching it on leaves the concept reading UNSAVED on purpose.** The overlaid values differ from
+  what the concept holds on disk, so Save (over this concept) and New (as another one) are both live
+  — which is the act the whole feature exists for. `applyPreset` therefore lays the overlay on
+  **after** `presetBaseline` is snapshotted; putting it before would make the styled concept read
+  clean and grey out Save.
+- **A style that is on follows you from concept to concept.** That IS the workflow. `applyPreset`
+  calls `reapplyStyleOverlay()` on every switch; `resetPreset` does too, so Reset lands you where
+  re-selecting the concept would and the toggle stays honest.
+- **Switching it off puts back exactly what the style overwrote** (`styleRestore`), leaving any
+  other edit alone — off undoes the style, not the session. Unticking one setting while the style is
+  on hands that single setting back to the concept.
+- **It is never persisted**, so it starts off in every session (Ken, 2026-08-23). Nothing to do —
+  the state is a module variable, so *don't* add persistence for it.
+
+### Where styles are stored, and the two saves
+
+Styles live in `localStorage` under **`bts_styles:${APP_CONFIG.appDir}`** — namespaced like every
+other stored key, since one origin serves both apps. Because the key carries the `bts_` prefix, the
+existing **"Save my settings"** on the Preferences tab picks styles up with no extra machinery, and
+that is deliberately the only file-level save (Ken, 2026-08-23).
+
+There are therefore **two levels of saved**, and both are real:
+
+1. The Styles tab's **Save** commits the edited draft into the style itself and writes the browser's
+   copy (the dirty marker and Save mirror the Concepts bar exactly). The form edits a **draft**, and
+   Apply reads that same draft — so what is on screen is what is on the symbol.
+2. **"Save my settings"** puts a copy in the connected folder. Until it is used, the browser's copy
+   is the only one, which is what the leaving-the-app warning is about.
+
+**Leaving with either level unsaved fires `beforeunload`.** ⚠️ A page cannot choose that dialog's
+wording — the browser supplies its own generic text — so the tab states plainly, while the user is
+looking at it, that "Save my settings" is what puts a copy in their folder. Don't try to word the
+dialog.
+
+**Restoring a settings backup reloads the styles** and switches any applied style off, since it
+belongs to the settings that just went away.
+
+### Reused furniture, on purpose
+
+The tab reuses the Concepts bar's own classes — `.presetbar` / `.preset-combo` / `.preset-actions`
+— and the Customizer's group/field structure (Ken, 2026-08-23). The name box is the same editable
+combobox, so **renaming is just editing the name and pressing Enter**, ↑/↓ step the list, and the
+buttons are **Save / New / Delete — no Reset**, which has no job here because the draft *is* the
+style. Reusing the markup means there is one combobox behavior in the app rather than two that can
+drift apart. ⚠️ Like `rebuildPresetOptions`, `rebuildStyleOptions` finds its elements by id, so the
+bar must be attached before it runs; the outside-click handler that closes the list is bound **once
+at module scope**, because the tab's markup is replaced on every settings render.
+
+The Settings modal grew from 560×380 to **620×520** to hold the tab.
+
+Test hooks: `window.__styles`, `window.__setStyleApplied`, `window.__selectStyle`.
+
+---
+
 ## The Bliss guideline matrix (basis for Step-0 automation)
 
 BSI SVG exports are laid out on the standard Bliss guideline matrix. In a 324-unit tall drawing the

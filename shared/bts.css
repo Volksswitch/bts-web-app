@@ -479,7 +479,10 @@
   #settings-overlay.open { display: block; }
   #settings-modal {
     position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    width: 560px; max-width: 90vw; height: 380px; max-height: 80vh;
+    /* Roomier than the original 560x380: the Styles tab carries a name bar, a
+       toggle and 21 settings, and a panel you must scroll for every one of them
+       reads as a much bigger job than it is. */
+    width: 620px; max-width: 92vw; height: 520px; max-height: 85vh;
     display: flex; flex-direction: column;
     background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
     box-shadow: 0 12px 32px rgba(20,28,38,.32);
@@ -495,4 +498,59 @@
   #settings-cats .cat.active { background: #d8e6f8; color: var(--accent); font-weight: bold; }
   #settings-panel { flex: 1; padding: 14px; overflow: auto; font-size: 12px; }
   #settings-panel .setting > label { display: block; font-weight: bold; margin-bottom: 4px; }
+
+  /* ---------- Styles tab (Settings) ----------
+     A STYLE is a named set of finishing settings laid over the selected concept
+     (see bts-core.js "styles"). The name bar deliberately reuses the Concepts
+     bar's own classes — .presetbar / .preset-combo / .preset-actions — so there
+     is ONE combobox behavior in the app rather than two that can drift apart.
+     Only the bits that differ inside a settings panel are restated here. */
+  .styles-pane .presetbar {
+    margin: -14px -14px 10px; border-bottom: 1px solid var(--line);
+  }
+  /* The Apply toggle is a MODE, not an action, so it is full width and sits on
+     its own rather than in the Save/New/Delete row. */
+  .style-applyrow { margin-bottom: 10px; }
+  .style-apply {
+    display: block; width: 100%; padding: 7px 10px; font: inherit; font-size: 12px;
+    color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 5px; cursor: pointer;
+  }
+  .style-apply:hover:not(:disabled) { border-color: var(--accent); }
+  .style-apply:disabled { opacity: .45; cursor: default; }
+  /* Switched on, it has to be unmistakable from across the room — it is changing
+     every concept the user selects from here on. */
+  .style-apply.on {
+    background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+  }
+  .style-note { margin: 6px 0 0; font-size: 11px; color: var(--muted); line-height: 1.45; }
+  .style-hint { margin: 0 0 8px; font-size: 11px; color: var(--muted); line-height: 1.45; }
+  .style-warn {
+    margin: 0 0 10px; padding: 7px 9px; font-size: 11px; line-height: 1.45;
+    color: #7a2318; background: #fdece9; border: 1px solid #f0c2b8; border-radius: 5px;
+  }
+  .style-warn div + div { margin-top: 5px; }
+  .styleform .group { margin-bottom: 8px; }
+  /* One row per overridable setting: the tick box decides whether the style
+     carries it at all, and the control beside it is greyed until it does — an
+     unticked setting is one the concept still answers for itself. */
+  .style-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .style-row:last-child { margin-bottom: 0; }
+  .style-rowhead {
+    flex: 0 0 46%; display: flex; align-items: center; gap: 6px;
+    font-size: var(--param-text-pt); cursor: pointer; min-width: 0;
+  }
+  .style-rowhead input[type=checkbox] { flex: 0 0 auto; margin: 0; accent-color: var(--accent); }
+  .style-rowhead span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .style-control { flex: 1 1 auto; min-width: 0; }
+  .style-control select, .style-control input[type=text], .style-control input[type=number] {
+    width: 100%; font-family: inherit; font-size: 12px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 3px 4px;
+  }
+  .style-control .rangewrap { display: flex; align-items: center; gap: 6px; }
+  .style-control input[type=range] { flex: 1 1 auto; min-width: 0; margin: 0; accent-color: var(--accent); }
+  .style-control input[type=number].rangeval { flex: 0 0 62px; width: 62px; }
+  .style-row.off .style-rowhead span { color: var(--muted); }
+  .style-row.off .style-control { opacity: .45; }
+
   #settings-footer { padding: 8px 14px; border-top: 1px solid var(--line); text-align: right; background: var(--panel); border-radius: 0 0 8px 8px; }

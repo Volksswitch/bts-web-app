@@ -40,6 +40,9 @@
        • svgSplitSourceDirs/svgSplitDestDirs — Split-Graphic's read and write folders.
                              Absent in an app that shouldn't offer it (the button hides).
        • exportFallback    — export base name when no preset/graphic names the output.
+       • stylesEnabled     — offers the Settings > Styles tab (named sets of finishing
+                             settings laid over a concept). Absent in an app that
+                             shouldn't offer it — the tab is removed at boot.
        • appRelease/appRepo/appDir — this app's self-update axis. appDir is this app's
                              subfolder in the repo (its sw.js + latest_app_version.json).
        • scadRepo/scadManifestFile — the designer .scad update axis. Both apps' .scad
@@ -59,6 +62,11 @@
     svgSplitSourceDirs: ['Bliss SVG files'],
     svgSplitDestDirs: ['Bliss SVG files', 'Basic SVG files', 'Puzzle SVG files'],
     exportFallback:   'bliss-symbol',
+    // Styles: named collections of finishing settings (mounts, thickness, string
+    // hole, text/braille) switched onto the selected concept, for making a second
+    // SET of symbols from an existing one. Symbols only — Tiles' concepts carry
+    // values unique to each concept, so a shared style has nothing to give it.
+    stylesEnabled:    true,
     appRelease:       32,
     appRepo:          'Volksswitch/bts-web-app',
     appDir:           'symbols',
@@ -171,6 +179,13 @@
     "What's new now always appears after the app updates itself. The setting that let you switch it off has been removed — an update is worth a moment of your time, and it is the only place the app tells you what changed.",
     "The button that starts the app fresh is now simply called “Reload the app”, and it is the one to use whenever the app looks wrong or seems stuck. You do not need to know anything about refreshing, or about clearing your browser.",
     "The app no longer carries the machinery that moved it to its new web address. That move is finished, so the reminder bar asking you to save your settings, and the hand-over that ran when you arrived, have both been retired. Loading a saved settings file is unchanged and still offered when the app has nothing stored."
+  ],
+  "32": [
+    "Styles — make a second set of symbols from a set you already have. A style is a named set of finishing settings: the mounts, the thickness, the string hole, whether text and braille are engraved. Switch one on and every concept you select comes out with those settings while keeping its own artwork, shape and word, so a set can be reissued with magnets instead of a string hole — or thicker, or with braille added — without editing each symbol by hand. Styles are made and named on the new Styles tab in Settings.",
+    "A style carries only the settings you tick, and only settings that leave a set varied. Anything that would make every symbol the same — the concept type, the graphic, the word on the symbol — cannot be part of one, and neither can the small nudges you use to fix one symbol that needs fixing.",
+    "The Styles tab warns you as you build a style if it asks for something a symbol cannot do — magnets and a string hole at once, say, or braille on a symbol too thin to carry it.",
+    "Switching a style on leaves the concept showing unsaved changes on purpose, so you can save over it or keep it as a new concept. Switching the style off puts the concept back as it was, and it always starts off when you open the app.",
+    "Styles are kept by your browser and are included when you use Save my settings on the Preferences tab. If you try to leave with styles that have not been saved that way, the app warns you first."
   ]
 };
   // @@RELEASE_NOTES_END@@

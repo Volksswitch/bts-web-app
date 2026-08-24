@@ -207,6 +207,7 @@ async function saveSettingsBackup(){
     await w.write(text);
     await w.close();
     logLine(`Saved your settings (${n} item${n === 1 ? '' : 's'}) to ${SETTINGS_BACKUP_FILE} in ${folder.dir.name}.`);
+    stylesUnsaved = false;
     return { n, where: 'folder', dirName: folder.dir.name };
   }
 
@@ -221,6 +222,7 @@ async function saveSettingsBackup(){
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
   logLine(`Saved your settings (${n} item${n === 1 ? '' : 's'}) to your downloads.`);
+  stylesUnsaved = false;
   return { n, where: 'download' };
 }
 
@@ -271,6 +273,10 @@ async function restoreSettingsBackup(file){
   }
   if (skipped) console.log(`[settings] ignored ${skipped} item(s) that are not this app's`);
   const when = obj.savedAt ? obj.savedAt.slice(0, 10) : 'an earlier date';
+  // Styles live in that store, so the restored ones replace whatever is in memory.
+  // A style switched on belongs to the settings that just went away — take it off.
+  if (styleApplied){ styleApplied = false; removeStyleOverlay(); updateDirty(); scheduleRender(); }
+  loadStyles();
   logLine(`Restored ${n} setting${n === 1 ? '' : 's'} from a backup saved on ${when}.`);
   return { count: n, savedAt: obj.savedAt, savedFrom: obj.savedFrom };
 }
@@ -3116,6 +3122,10 @@ function applyPreset(name){
   applyParamValues(preset);
   // Baseline AFTER the graphic is settled, so a fresh preset doesn't read dirty.
   presetBaseline = snapshotParams();
+  // A style that is switched on follows you from concept to concept — that IS the
+  // workflow it exists for. Laid on AFTER the baseline, so the overlaid concept
+  // reads as unsaved and Save/New are live.
+  reapplyStyleOverlay();
   updateDirty();
   setStatus('Applied preset “' + name + '” — rendering…', 'busy');
 }
@@ -3131,6 +3141,9 @@ function resetPreset(){
   if (!presetBaseline || !isDirty()) return;
   applyParamValues(presetBaseline);
   presetBaseline = snapshotParams();   // re-taken after the graphic settles, as applyPreset does
+  // Reset throws away YOUR edits, not the style you have switched on — it lands
+  // you where re-selecting this concept would, which keeps the toggle honest.
+  reapplyStyleOverlay();
   updateDirty();                       // greys Save and Reset again — nothing is dirty now
   setStatus(currentPreset
     ? `Discarded unsaved changes to “${currentPreset}” — rendering…`
@@ -3220,6 +3233,587 @@ async function deletePreset(){
     setStatus(`Deleted preset “${name}”.`, 'ok');
   } catch (e) { setStatus('Delete failed — see console', 'err'); logLine('Delete preset failed: ' + (e.message || e)); }
 }
+
+// --------------------------------------------------------------------- styles
+// A STYLE is a named collection of finishing settings — mounts, thickness, the
+// string hole, whether text and braille are engraved — that can be laid over the
+// concept currently selected without disturbing what makes that concept the
+// symbol it is (Ken, 2026-08-23). The point is to make a second SET of symbols
+// from an existing set: switch a style on, step through the concepts, and each
+// one comes out with the same mounting and finishing while keeping its own
+// artwork, shape and word.
+//
+// WHY THESE 21 AND NOT OTHERS. A style may only carry settings that leave the
+// diversity of a set intact. Bliss Concept Type is excluded because it encodes
+// grammatical type in the body shape — one value across a set erases that; the
+// Graphic File and Symbol Text are excluded because they ARE the symbol. Also
+// excluded (Ken, 2026-08-23) are the per-symbol nudges — rotate/slide text,
+// slide braille, move hole — which exist to fix the one symbol that needs fixing
+// and have no business being stamped across a set, and the two display colors,
+// which are viewport-only and never reach the printed object. Slide Center
+// Velcro Vertically IS included: where the mount sits is a whole-set decision.
+//
+// Adding one here is safe only if it passes that test. It must also be a param
+// the .scad actually declares — a name with no matching param is ignored.
+const STYLE_PARAMS = [
+  'symbol_thickness', 'resize_symbol_height_width',
+  'embed_RFID_tag', 'embed_magnets', 'add_velcro_mounts',
+  'add_center_velcro_mount', 'center_velcro_size', 'slide_center_velcro_vertically',
+  'graphic_height', 'include_earth_and_sky_lines',
+  'engrave_text', 'text_location', 'font_style', 'text_height',
+  'include_braille', 'braille_location', 'braille_size_multiplier',
+  'add_hole_for_string', 'direction_of_hole', 'location_of_hole', 'diameter_of_hole',
+];
+const STYLE_PARAM_SET = new Set(STYLE_PARAMS);
+
+// Per-app, like every other stored key: one origin serves both apps, so a bare
+// key would be one value shared by Symbols and Tiles (see the localStorage note
+// in CLAUDE.md). Tiles does not enable styles — its concepts carry values that
+// are unique per concept, so a shared style has nothing to give it — but the key
+// is namespaced anyway, since that is the standing rule.
+const LS_STYLES = `bts_styles:${APP_CONFIG.appDir}`;
+// Styles are a Symbols feature; a shell that doesn't ask for them doesn't get the
+// tab at all (no app-specific code, just absent config).
+const STYLES_ENABLED = !!APP_CONFIG.stylesEnabled;
+
+let STYLES = {};             // { name: { param: "value-as-string" } } — committed
+let currentStyle = '';       // '' = none selected
+let styleDraft = null;       // working copy of the selected style; the form edits THIS
+let styleApplied = false;    // is the style currently laid over the concept?
+let styleRestore = null;     // the concept's own values for the params the style wrote
+let stylesUnsaved = false;   // changed since the last "Save my settings"
+
+// A style stores only what it NAMES. That is the whole difference from switching
+// concepts, which writes every user-facing param: tick Embed Magnets and nothing
+// else, and applying the style gives every concept magnets while leaving each
+// one's answer to the other twenty exactly as it was.
+function loadStyles(){
+  let raw = null;
+  try { raw = localStorage.getItem(LS_STYLES); } catch {}
+  let parsed = null;
+  try { parsed = raw ? JSON.parse(raw) : null; } catch {}
+  STYLES = (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+  // Drop anything that isn't a known overridable setting, so a style written by a
+  // later release — or hand-edited into the settings file — can never push a
+  // forbidden one (the Graphic File, say) onto a concept.
+  for (const n of Object.keys(STYLES)){
+    const clean = {};
+    for (const [k, v] of Object.entries(STYLES[n] || {})) if (STYLE_PARAM_SET.has(k)) clean[k] = String(v);
+    STYLES[n] = clean;
+  }
+  currentStyle = styleNames()[0] || '';
+  styleDraft = currentStyle ? { ...STYLES[currentStyle] } : null;
+  stylesUnsaved = false;
+}
+// Writes the browser's copy. The FILE copy is a separate act — "Save my settings"
+// on the Preferences tab — which is why this also raises the flag that the
+// leaving-the-app warning reads.
+function persistStyles(){
+  try { localStorage.setItem(LS_STYLES, JSON.stringify(STYLES)); } catch {}
+  stylesUnsaved = true;
+}
+function styleNames(){
+  return Object.keys(STYLES).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+}
+// The form edits a DRAFT and Apply reads that same draft, so what is on screen is
+// what is on the symbol — there is no committed/uncommitted split to explain.
+// Save copies the draft into the style proper.
+function styleDirty(){
+  if (!currentStyle || !styleDraft) return false;
+  const a = styleDraft, b = STYLES[currentStyle] || {};
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of keys) if ((a[k] ?? null) !== (b[k] ?? null)) return true;
+  return false;
+}
+// In .scad declaration order, so the tab reads in the same order as the
+// Customizer rather than in the order this file happens to list them.
+function styleParamDefs(){ return PARAMS.filter(p => STYLE_PARAM_SET.has(p.name)); }
+function styleDefaultFor(name){
+  if (SCAD_DEFAULTS && name in SCAD_DEFAULTS) return SCAD_DEFAULTS[name];
+  const p = PARAMS.find(x => x.name === name);
+  return p ? String(p.value) : '';
+}
+
+// Push one stored value onto a live param, coercing to that param's type — the
+// same coercion applyParamValues does, factored out here so a style and a concept
+// cannot come to disagree about what "10" means.
+function setParamValue(p, raw){
+  if (p.type === 'number'){
+    let v = parseFloat(raw);
+    if (!Number.isFinite(v)) return;
+    if (p.control === 'range') v = snapToStep(v, p);
+    p.value = v;
+  } else {
+    p.value = String(raw);
+  }
+  if (p.applyUI) p.applyUI();
+}
+
+// Lay the style over the live params, remembering what each one held first so
+// switching the style off can put it back. Called on toggle-on, on every concept
+// switch while the toggle is on (that IS the workflow — step through concepts
+// with one style on), and after Reset.
+function applyStyleOverlay(){
+  if (!styleApplied || !styleDraft) return 0;
+  styleRestore = {};
+  let n = 0;
+  for (const [name, raw] of Object.entries(styleDraft)){
+    if (!STYLE_PARAM_SET.has(name)) continue;
+    const p = PARAMS.find(x => x.name === name);
+    if (!p) continue;                       // a param this .scad no longer declares
+    styleRestore[name] = String(p.value);
+    setParamValue(p, raw);
+    n++;
+  }
+  return n;
+}
+// Put back exactly what the style overwrote. Anything the user changed by hand
+// after applying is left alone — switching a style off undoes the style, not the
+// session.
+function removeStyleOverlay(){
+  if (!styleRestore) return 0;
+  let n = 0;
+  for (const [name, raw] of Object.entries(styleRestore)){
+    const p = PARAMS.find(x => x.name === name);
+    if (!p) continue;
+    setParamValue(p, raw);
+    n++;
+  }
+  styleRestore = null;
+  return n;
+}
+
+// The Apply toggle. Switching it on leaves the concept reading UNSAVED on
+// purpose: the overlaid values differ from what the concept holds on disk, so
+// Save (over this concept) and New (as another one) are both live — which is
+// exactly the act the whole feature exists for. It is never persisted, so it
+// starts off in every session (Ken, 2026-08-23).
+function setStyleApplied(on){
+  on = !!on;
+  if (on === styleApplied) return;
+  if (on && !(currentStyle && styleDraft && Object.keys(styleDraft).length)) return;
+  if (!PARAMS.length) return;               // no folder open yet — nothing to lay it over
+  styleApplied = on;
+  const n = on ? applyStyleOverlay() : removeStyleOverlay();
+  updateDirty();
+  syncStyleUI();
+  scheduleRender();
+  setStatus(on
+    ? `Style “${currentStyle}” applied — rendering…`
+    : 'Style switched off — rendering…', 'busy');
+  logLine(on
+    ? `Applied style "${currentStyle}" (${n} setting${n === 1 ? '' : 's'}).`
+    : `Switched off style "${currentStyle}".`);
+}
+// Re-lay the style after the live params have been rewritten wholesale — a
+// concept switch or a Reset. Called AFTER presetBaseline is re-snapshotted, so
+// the overlay reads as an unsaved change and Save stays live.
+function reapplyStyleOverlay(){
+  if (!styleApplied) return;
+  applyStyleOverlay();
+}
+
+async function selectStyle(name){
+  if (name === currentStyle){ rebuildStyleOptions(); return; }
+  if (styleDirty() && !(await confirmDiscard(`Discard unsaved changes to the style “${currentStyle}”?`))){
+    rebuildStyleOptions();
+    return;
+  }
+  const wasApplied = styleApplied;
+  if (styleApplied){ styleApplied = false; removeStyleOverlay(); }
+  currentStyle = name;
+  styleDraft = name ? { ...(STYLES[name] || {}) } : null;
+  if (wasApplied && styleDraft && Object.keys(styleDraft).length){
+    styleApplied = true;
+    applyStyleOverlay();
+  }
+  buildStylesPanel();
+  updateDirty();
+  if (wasApplied) scheduleRender();
+}
+
+function stepStyle(delta){
+  const names = styleNames();
+  if (!names.length) return;
+  const i = names.indexOf(currentStyle);
+  if (i < 0){ selectStyle(delta > 0 ? names[0] : names[names.length - 1]); return; }
+  const j = Math.max(0, Math.min(names.length - 1, i + delta));
+  if (j !== i) selectStyle(names[j]);
+}
+
+function saveStyle(){
+  if (!currentStyle) return addStyle();
+  STYLES[currentStyle] = { ...styleDraft };
+  persistStyles();
+  buildStylesPanel();
+  logLine(`Saved style "${currentStyle}".`);
+}
+function addStyle(){
+  const name = (prompt('Name for the new style:', currentStyle || '') || '').trim();
+  if (!name) return;
+  if (STYLES[name] && !window.confirm(`A style named “${name}” exists. Replace it?`)) return;
+  // A new style inherits the one on screen, as New does for concepts.
+  STYLES[name] = { ...(styleDraft || {}) };
+  currentStyle = name;
+  styleDraft = { ...STYLES[name] };
+  persistStyles();
+  buildStylesPanel();
+  logLine(`Added style "${name}".`);
+}
+async function deleteStyle(){
+  if (!currentStyle) return;
+  const name = currentStyle;
+  if (!(await confirmDiscard(`Delete the style “${name}”? This cannot be undone.`))) return;
+  // A style that is switched on has to come off the concept before it disappears,
+  // or the concept is left holding values from something that no longer exists.
+  if (styleApplied){ styleApplied = false; removeStyleOverlay(); updateDirty(); scheduleRender(); }
+  delete STYLES[name];
+  const rest = styleNames();
+  currentStyle = rest[0] || '';
+  styleDraft = currentStyle ? { ...STYLES[currentStyle] } : null;
+  persistStyles();
+  buildStylesPanel();
+  logLine(`Deleted style "${name}".`);
+}
+// Rename in place: the styles object is rebuilt in key order so the style keeps
+// its position, matching how a concept is renamed.
+function renameStyle(newName){
+  newName = String(newName || '').trim();
+  const oldName = currentStyle;
+  if (!oldName || !newName || newName === oldName){ rebuildStyleOptions(); return; }
+  if (STYLES[newName] && !window.confirm(`A style named “${newName}” exists. Replace it?`)){ rebuildStyleOptions(); return; }
+  const next = {};
+  for (const k of Object.keys(STYLES)){ if (k === oldName) next[newName] = STYLES[oldName]; else if (k !== newName) next[k] = STYLES[k]; }
+  STYLES = next;
+  currentStyle = newName;
+  persistStyles();
+  buildStylesPanel();
+  logLine(`Renamed style "${oldName}" to "${newName}".`);
+}
+
+// Things a style can ask for that a symbol cannot deliver. Checked HERE, as the
+// style is built, rather than each time it is applied (Ken, 2026-08-23): magnets
+// and the string hole are decided once for a whole set, so a coherent style
+// carries both halves of that decision and applying it RESOLVES the clash rather
+// than causing one. What is left is the conflicts inside the style itself — and
+// this is the moment the person who can fix them is looking straight at them.
+function styleWarnings(sv){
+  const out = [];
+  if (!sv) return out;
+  const has = k => k in sv;
+  const val = k => String(sv[k] ?? '');
+  const num = k => parseFloat(sv[k]);
+  if (val('embed_magnets') === 'yes' && val('add_hole_for_string') === 'yes')
+    out.push('Magnets and a string hole cannot both be present — a symbol can have one or the other.');
+  else if (val('embed_magnets') === 'yes' && !has('add_hole_for_string'))
+    out.push('This style adds magnets but says nothing about the string hole, so any concept that has a hole will clash with it. Include “Add Hole For String” and set it to no.');
+  if (val('embed_RFID_tag') === 'yes'){
+    if (has('symbol_thickness') && num('symbol_thickness') < 6)
+      out.push(`An RFID tag needs a symbol at least 6 mm thick; this style sets ${num('symbol_thickness')} mm.`);
+    else if (!has('symbol_thickness'))
+      out.push('An RFID tag needs a symbol at least 6 mm thick. Include “Symbol Thickness” so every concept is thick enough.');
+  }
+  if (val('include_braille') === 'yes'){
+    if (has('symbol_thickness') && num('symbol_thickness') < 8)
+      out.push(`Braille needs a symbol at least 8 mm thick; this style sets ${num('symbol_thickness')} mm.`);
+    else if (!has('symbol_thickness'))
+      out.push('Braille needs a symbol at least 8 mm thick. Include “Symbol Thickness” so every concept is thick enough.');
+  }
+  return out;
+}
+
+// ---- Styles tab UI ---------------------------------------------------------
+// Deliberately the SAME furniture as the Concepts bar (Ken, 2026-08-23): the
+// .presetbar / .preset-combo / .preset-actions classes, an editable name box that
+// renames on Enter, and Save / New / Delete — minus Reset, which has no job here
+// because the draft IS the style. Reusing the markup means there is one combobox
+// behavior in the app, not two that can drift.
+function stylesPanelSkeleton(){
+  return `
+    <div class="setting styles-pane">
+      <div id="styleBar" class="presetbar"></div>
+      <div id="styleApplyRow" class="style-applyrow"></div>
+      <div id="styleWarn" class="style-warn" hidden></div>
+      <div id="styleHint" class="style-hint"></div>
+      <div id="styleForm" class="styleform"></div>
+    </div>
+  `;
+}
+
+// Rebuild the name list and sync the box to the selection. Same contract as
+// rebuildPresetOptions: call it after ANY change to STYLES or currentStyle, and
+// only once the bar is attached (it finds its elements by id).
+function rebuildStyleOptions(){
+  const input = document.getElementById('styleInput');
+  const list  = document.getElementById('styleList');
+  if (!input || !list) return;
+  input.value = currentStyle;
+  list.innerHTML = '';
+  for (const n of styleNames()){
+    const li = document.createElement('li');
+    li.textContent = n; li.dataset.name = n; li.setAttribute('role', 'option');
+    if (n === currentStyle) li.classList.add('active');
+    // mousedown, not click — the input's blur handler reverts uncommitted typing
+    // on a timer and a click would land after it (same reason as the concept list).
+    li.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const l = document.getElementById('styleList'); if (l) l.classList.remove('open');
+      if (n !== currentStyle) selectStyle(n); else input.value = currentStyle;
+    });
+    list.appendChild(li);
+  }
+}
+
+// Reflect state on the controls without rebuilding the panel — used by the Apply
+// toggle and the per-row tick boxes, which must not lose focus or scroll position.
+function syncStyleUI(){
+  const nStyles = styleNames().length;
+  const dirty   = styleDirty();
+  const marker  = document.getElementById('styleDirtyMarker');
+  if (marker) marker.classList.toggle('visible', dirty);
+  const save = document.getElementById('saveStyleBtn'); if (save) save.disabled = !dirty && !!currentStyle;
+  const del  = document.getElementById('delStyleBtn');  if (del)  del.disabled  = !currentStyle;
+  const btn  = document.getElementById('styleApplyBtn');
+  if (btn){
+    const usable = !!(currentStyle && styleDraft && Object.keys(styleDraft).length) && !!PARAMS.length;
+    btn.disabled = !usable;
+    btn.classList.toggle('on', styleApplied);
+    btn.textContent = styleApplied ? 'Applied — click to switch off' : 'Apply to the current concept';
+    btn.setAttribute('aria-pressed', styleApplied ? 'true' : 'false');
+  }
+  const note = document.getElementById('styleApplyNote');
+  if (note){
+    note.textContent = !PARAMS.length
+      ? 'Open your folder first — a style is laid over the concept you have selected.'
+      : !nStyles
+        ? 'Make a style with New, tick the settings it should change, then apply it.'
+        : styleApplied
+          ? `Every concept you select now comes out with this style. Save over the concept, or use New to keep it as another one. Switching this off puts the concept back as it was.`
+          : 'Switches the ticked settings onto the concept you have selected. It switches itself off when you leave the app.';
+  }
+  const warnEl = document.getElementById('styleWarn');
+  if (warnEl){
+    const ws = styleWarnings(styleDraft);
+    warnEl.hidden = !ws.length;
+    warnEl.innerHTML = ws.map(w => `<div>${w}</div>`).join('');
+  }
+  const hint = document.getElementById('styleHint');
+  if (hint){
+    hint.textContent = stylesUnsaved
+      ? 'Your styles are kept by this browser. Use “Save my settings” on the Preferences tab to keep a copy in your folder.'
+      : '';
+  }
+}
+function syncStyleHint(){ syncStyleUI(); }
+
+// One row per overridable setting: a tick box that decides whether the style
+// carries the setting at all, and the setting's own control. Unticked, the
+// control is greyed and the concept keeps its own answer; ticked, the value
+// starts at the program default (Ken, 2026-08-23) and the style writes it.
+function buildStyleRow(p, body){
+  const row = document.createElement('div'); row.className = 'style-row';
+  const head = document.createElement('label'); head.className = 'style-rowhead';
+  const tick = document.createElement('input'); tick.type = 'checkbox';
+  tick.checked = !!(styleDraft && p.name in styleDraft);
+  const nameEl = document.createElement('span'); nameEl.textContent = LABELS[p.name] || prettify(p.name);
+  head.append(tick, nameEl);
+  row.appendChild(head);
+
+  const holder = document.createElement('div'); holder.className = 'style-control';
+  const cur = () => (styleDraft && p.name in styleDraft) ? styleDraft[p.name] : styleDefaultFor(p.name);
+  let setEnabled = () => {};
+
+  const commit = v => {
+    if (!styleDraft) return;
+    styleDraft[p.name] = String(v);
+    if (styleApplied){ applyStyleOverlay(); updateDirty(); scheduleRender(); }
+    syncStyleUI();
+  };
+
+  if (p.control === 'select'){
+    const sel = document.createElement('select');
+    p.options.forEach(o => { const opt = document.createElement('option'); opt.value = o.v; opt.textContent = o.label; sel.appendChild(opt); });
+    sel.value = String(cur());
+    sel.addEventListener('change', () => commit(sel.value));
+    setEnabled = on => { sel.disabled = !on; sel.value = String(cur()); };
+    holder.appendChild(sel);
+  } else if (p.control === 'range'){
+    const wrap = document.createElement('div'); wrap.className = 'rangewrap';
+    const slider = document.createElement('input'); slider.type = 'range';
+    slider.min = p.min; slider.max = p.max; slider.step = p.step; slider.value = cur();
+    const spin = document.createElement('input'); spin.type = 'number'; spin.className = 'rangeval';
+    spin.min = p.min; spin.max = p.max; spin.step = p.step; spin.value = fmtStep(cur(), p.step);
+    slider.addEventListener('input',  () => { spin.value = fmtStep(+slider.value, p.step); });
+    slider.addEventListener('change', () => { const v = snapToStep(+slider.value, p); spin.value = fmtStep(v, p.step); commit(v); });
+    spin.addEventListener('change', () => {
+      if (spin.value === ''){ spin.value = fmtStep(cur(), p.step); return; }
+      const v = snapToStep(+spin.value, p);
+      slider.value = v; spin.value = fmtStep(v, p.step); commit(v);
+    });
+    setEnabled = on => {
+      slider.disabled = !on; spin.disabled = !on;
+      slider.value = cur(); spin.value = fmtStep(cur(), p.step);
+    };
+    wrap.append(slider, spin); holder.appendChild(wrap);
+  } else {
+    const inp = document.createElement('input');
+    inp.type = p.control === 'number' ? 'number' : 'text';
+    inp.value = cur();
+    inp.addEventListener('change', () => commit(inp.value));
+    setEnabled = on => { inp.disabled = !on; inp.value = cur(); };
+    holder.appendChild(inp);
+  }
+  row.appendChild(holder);
+
+  tick.addEventListener('change', () => {
+    if (!styleDraft) { tick.checked = false; return; }
+    if (tick.checked){
+      // Ticking adds the setting at the program default — a known starting point,
+      // the same one "design default values" restores a concept to.
+      styleDraft[p.name] = styleDefaultFor(p.name);
+    } else {
+      delete styleDraft[p.name];
+      // Dropping a setting from a style that is switched ON has to hand that one
+      // setting back to the concept, not leave the style's value stranded on it.
+      if (styleApplied && styleRestore && p.name in styleRestore){
+        const lp = PARAMS.find(x => x.name === p.name);
+        if (lp) setParamValue(lp, styleRestore[p.name]);
+        delete styleRestore[p.name];
+      }
+    }
+    setEnabled(tick.checked);
+    row.classList.toggle('off', !tick.checked);
+    if (styleApplied){ applyStyleOverlay(); updateDirty(); scheduleRender(); }
+    syncStyleUI();
+  });
+
+  setEnabled(tick.checked);
+  row.classList.toggle('off', !tick.checked);
+  body.appendChild(row);
+}
+
+// Build (or rebuild) the whole tab. Cheap enough to redo on any structural change
+// — a different style selected, one added or deleted — while the tick boxes and
+// the Apply toggle update in place through syncStyleUI().
+function buildStylesPanel(){
+  const barEl  = document.getElementById('styleBar');
+  const applyEl = document.getElementById('styleApplyRow');
+  const formEl = document.getElementById('styleForm');
+  if (!barEl || !formEl || !applyEl) return;      // the tab isn't on screen
+
+  barEl.innerHTML = '';
+  const label = document.createElement('label'); label.className = 'name';
+  label.textContent = 'Styles ';
+  const marker = document.createElement('span'); marker.id = 'styleDirtyMarker';
+  marker.className = 'dirty-marker'; marker.textContent = '● unsaved';
+  label.appendChild(marker); barEl.appendChild(label);
+
+  const combo = document.createElement('div'); combo.className = 'preset-combo'; combo.id = 'styleCombo';
+  const input = document.createElement('input');
+  input.type = 'text'; input.id = 'styleInput';
+  input.autocomplete = 'off'; input.spellcheck = false;
+  input.placeholder = '— no styles yet —';
+  input.title = 'Style — ↑↓ to switch, ▾ for the list, edit the name and press Enter to rename';
+  const dropBtn = document.createElement('button');
+  dropBtn.type = 'button'; dropBtn.className = 'combo-btn'; dropBtn.id = 'styleDropBtn';
+  dropBtn.tabIndex = -1; dropBtn.textContent = '▾';
+  dropBtn.setAttribute('aria-label', 'Show style list');
+  const list = document.createElement('ul');
+  list.id = 'styleList'; list.setAttribute('role', 'listbox');
+  combo.append(input, dropBtn, list);
+  barEl.appendChild(combo);
+
+  dropBtn.addEventListener('mousedown', e => {
+    e.preventDefault();
+    if (list.classList.contains('open')) list.classList.remove('open');
+    else if (list.children.length){ list.classList.add('open'); input.focus(); }
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown')    { e.preventDefault(); stepStyle(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); stepStyle(-1); }
+    else if (e.key === 'Enter')   { e.preventDefault(); list.classList.remove('open'); renameStyle(input.value); }
+    else if (e.key === 'Escape')  { e.preventDefault(); input.value = currentStyle; list.classList.remove('open'); input.blur(); }
+  });
+  input.addEventListener('blur', () => {
+    setTimeout(() => { const i = document.getElementById('styleInput'); if (i) i.value = currentStyle; const l = document.getElementById('styleList'); if (l) l.classList.remove('open'); }, 150);
+  });
+
+  const actions = document.createElement('div'); actions.className = 'preset-actions';
+  const mk = (id, text, title) => { const b = document.createElement('button'); b.type = 'button'; b.id = id; b.textContent = text; b.title = title; return b; };
+  const saveBtn = mk('saveStyleBtn', 'Save', 'Keep the changes to this style');
+  const addBtn  = mk('addStyleBtn',  'New',  'Create a new style that inherits the settings on screen; prompts for a name');
+  const delBtn  = mk('delStyleBtn',  'Delete', 'Delete the selected style');
+  actions.append(saveBtn, addBtn, delBtn);
+  barEl.appendChild(actions);
+  saveBtn.addEventListener('click', saveStyle);
+  addBtn.addEventListener('click', addStyle);
+  delBtn.addEventListener('click', deleteStyle);
+
+  rebuildStyleOptions();
+
+  // The Apply toggle lives HERE rather than beside the Concepts bar (Ken,
+  // 2026-08-23): applying is a mode you switch on for a run of work, not one more
+  // action competing with Save/New/Delete in the main pane.
+  applyEl.innerHTML = '';
+  const applyBtn = document.createElement('button');
+  applyBtn.type = 'button'; applyBtn.id = 'styleApplyBtn'; applyBtn.className = 'style-apply';
+  applyBtn.addEventListener('click', () => setStyleApplied(!styleApplied));
+  const note = document.createElement('p'); note.id = 'styleApplyNote'; note.className = 'style-note';
+  applyEl.append(applyBtn, note);
+
+  formEl.innerHTML = '';
+  const defs = styleParamDefs();
+  if (!currentStyle){
+    const empty = document.createElement('p'); empty.className = 'style-note';
+    empty.textContent = 'A style is a named set of finishing settings — mounts, thickness, the string hole, text and braille — that you can switch onto any concept without changing its artwork, shape or word. Click New to make one.';
+    formEl.appendChild(empty);
+  } else if (!defs.length){
+    const empty = document.createElement('p'); empty.className = 'style-note';
+    empty.textContent = 'Open your folder first — the settings a style can carry are read from your designer file.';
+    formEl.appendChild(empty);
+  } else {
+    const intro = document.createElement('p'); intro.className = 'style-note';
+    intro.textContent = 'Tick a setting to make this style carry it. Anything left unticked keeps whatever the concept already says.';
+    formEl.appendChild(intro);
+    // Grouped exactly as the Customizer groups them, so a setting is where the
+    // user already knows to look for it.
+    const byGroup = new Map();
+    for (const p of defs){
+      if (!byGroup.has(p.group)) byGroup.set(p.group, []);
+      byGroup.get(p.group).push(p);
+    }
+    for (const [gname, ps] of byGroup){
+      const det = document.createElement('details'); det.className = 'group'; det.open = true;
+      const sum = document.createElement('summary'); sum.textContent = gname; det.appendChild(sum);
+      const body = document.createElement('div'); body.className = 'groupbody'; det.appendChild(body);
+      ps.forEach(p => buildStyleRow(p, body));
+      formEl.appendChild(det);
+    }
+  }
+  syncStyleUI();
+}
+
+// Close the style list on an outside click. Bound once at module scope — the tab's
+// markup is replaced on every settings render, so a per-combo binding would pile up.
+document.addEventListener('mousedown', e => {
+  const combo = document.getElementById('styleCombo');
+  if (combo && !combo.contains(e.target)){ const l = document.getElementById('styleList'); if (l) l.classList.remove('open'); }
+});
+
+// Leaving with styles that exist only in this browser (Ken, 2026-08-23). The
+// browser supplies its own generic wording — a page cannot choose the words — so
+// the panel says plainly, while they are looking at it, that "Save my settings"
+// is what puts a copy in their folder.
+window.addEventListener('beforeunload', e => {
+  if (!STYLES_ENABLED) return;
+  if (!stylesUnsaved && !styleDirty()) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+
+window.__styles = () => ({ STYLES, currentStyle, styleDraft, styleApplied, styleRestore, stylesUnsaved, dirty: styleDirty() });
+window.__setStyleApplied = setStyleApplied;
+window.__selectStyle = selectStyle;
 
 function prettify(name){ return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
 
@@ -3707,6 +4301,8 @@ const SETTINGS_PANELS = {
     </div>
   `,
 
+  styles: stylesPanelSkeleton,
+
   prefs: () => `
     <div class="setting">
       <label>Your settings</label>
@@ -3744,6 +4340,14 @@ function scadVersionLabel(){
 
 const settingsOverlay = document.getElementById('settings-overlay');
 const settingsPanelEl = document.getElementById('settings-panel');
+// Styles are Symbols-only (Tiles' concepts hold values that are unique to each
+// one, so a shared style has nothing to give it). No app-specific code — the tab
+// is simply removed when the shell doesn't ask for it.
+(function gateStylesTab(){
+  const tab = document.getElementById('settings-cat-styles');
+  if (tab && !STYLES_ENABLED) tab.remove();
+})();
+if (STYLES_ENABLED) loadStyles();
 function renderSettingsPanel(cat){
   settingsPanelEl.innerHTML = (SETTINGS_PANELS[cat] || SETTINGS_PANELS.about)();
   wireSettingsPanel(cat);
@@ -3752,6 +4356,7 @@ function renderSettingsPanel(cat){
 // The panel's markup is replaced on every render, so its controls must be wired
 // each time rather than once at startup.
 function wireSettingsPanel(cat){
+  if (cat === 'styles'){ buildStylesPanel(); return; }
   if (cat !== 'prefs') return;
   const msgEl  = document.getElementById('prefMsg');
   const setMsg = (t, bad) => { if (msgEl){ msgEl.textContent = t; msgEl.style.color = bad ? '#b3261e' : 'var(--muted)'; } };
@@ -3763,6 +4368,7 @@ function wireSettingsPanel(cat){
         ? `Saved ${r.n} item${r.n === 1 ? '' : 's'} as ${SETTINGS_BACKUP_FILE} in your ${r.dirName} folder.`
         : `Saved ${r.n} item${r.n === 1 ? '' : 's'} as ${SETTINGS_BACKUP_FILE} in your downloads. `
           + `Connect your folder and save again to keep it beside your work.`);
+      syncStyleUI();          // the styles tab's "not saved yet" hint is now stale
     } catch (e){ setMsg('Could not save your settings: ' + e.message, true); }
   });
 

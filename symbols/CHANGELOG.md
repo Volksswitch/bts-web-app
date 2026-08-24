@@ -7,6 +7,29 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 32
+
+- **Styles — make a second set of symbols from a set you already have.** A style is
+  a named set of finishing settings: the mounts, the thickness, the string hole,
+  whether text and braille are engraved. Switch one on and every concept you select
+  comes out with those settings while keeping its own artwork, shape and word, so a
+  set can be reissued with magnets instead of a string hole — or thicker, or with
+  braille added — without editing each symbol by hand. Styles are made and named on
+  the new **Styles** tab in Settings.
+- A style carries only the settings you tick, and only settings that leave a set
+  varied. Anything that would make every symbol the same — the concept type, the
+  graphic, the word on the symbol — cannot be part of one, and neither can the small
+  nudges you use to fix one symbol that needs fixing.
+- The Styles tab warns you as you build a style if it asks for something a symbol
+  cannot do — magnets and a string hole at once, say, or braille on a symbol too
+  thin to carry it.
+- Switching a style on leaves the concept showing unsaved changes on purpose, so you
+  can save over it or keep it as a new concept. Switching the style off puts the
+  concept back as it was, and it always starts off when you open the app.
+- Styles are kept by your browser and are included when you use **Save my settings**
+  on the Preferences tab. If you try to leave with styles that have not been saved
+  that way, the app warns you first.
+
 ## Release 31
 
 - What's new now always appears after the app updates itself. The setting that let
