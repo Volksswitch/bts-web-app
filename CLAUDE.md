@@ -1207,8 +1207,13 @@ BTS web app/
 │   ├── sw.js          ← Service worker (scope /symbols/, CACHE_NAME bts-symbols-vN)
 │   ├── manifest.webmanifest · latest_app_version.json · CHANGELOG.md
 ├── tiles/             ← Bliss Tiles and Puzzles app (same shape as symbols/)
+├── SECURITY.md        ← Security overview for IT teams — the SOURCE. Update it in the same
+│                     change as anything affecting the network, browser storage, or the
+│                     user's files ("build the security document" → SECURITY.docx)
+├── SECURITY.docx      ← Generated output; never hand-edit. Ken converts to PDF + uploads
 ├── scripts/           ← apply-release-notes.mjs (both apps), publish-app-version.mjs <app>,
-│                     publish-designer-file.mjs <app>, check-designer-delivery.mjs [--live]
+│                     publish-designer-file.mjs <app>, check-designer-delivery.mjs [--live],
+│                     build-security-docx.py [in.md [out.docx]]
 ├── favicon.svg        ← landing-page mark only
 ├── icons/             ← per-app icon sets, see "App icons — the Volksswitch standard"
 │                        <app>.svg · <app>-maskable.svg · <app>-{192,512,maskable-512}.png
@@ -1305,6 +1310,16 @@ scheme must not restyle the app. Ken asked for icons; the interior was deliberat
   the migration test and is exactly what blinded four of its checks (ORIGIN-MIGRATION-STATE §21),
   so removing it closes that hazard as well as simplifying the panel. The Save/Load settings
   buttons stay — real preferences are coming.
+- **The security document is kept in lockstep with the apps** (created 1 Sep 2026).
+  `SECURITY.md` is the source; **"build the security document"**
+  (`python scripts/build-security-docx.py`) renders `SECURITY.docx`; **Ken converts it to
+  PDF and uploads it himself**, so the script deliberately stops at the .docx. The .docx is
+  an OUTPUT — never hand-edit it. ⚠️ **Whenever a change alters what the apps do on the
+  network, in browser storage, or with the user's files, update `SECURITY.md` and rebuild in
+  the same change.** The keyguard's copy once fell three months behind the app it described,
+  still promising IT teams there was no third-party contact after a GitHub-hosted update
+  check had shipped — a document that fails the test it invites the reader to run costs more
+  trust than having none. It is only correct once Ken has uploaded it.
 - **American English everywhere** (Ken, 2026-07-23). All new text — UI strings, code comments,
   `CHANGELOG.md` bullets, this file, and anything Claude writes in chat — uses American spelling
   ("color", "center", "behavior", "normalize"). Existing British spellings scattered through the
