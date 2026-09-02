@@ -76,14 +76,42 @@ pre-bump lives **locally only (unpushed)**. **`CACHE_NAME` and `latest_app_versi
 NOT pre-bumped** — they move only during that app's release ritual. All numbers only ever
 **increase.**
 
-⚠️ **"Locally only" is aspirational for the app you are NOT releasing.** There is one branch and
-one push, so releasing app A also deploys app B's pre-bumped `appRelease` — B's users end up
-running a number one ahead of B's manifest. That is harmless for updating (B's manifest hasn't
-moved, so no update is offered), but it used to be *silently destructive* for B's next "What's
-new": `maybeShowWhatsNew` advanced the last-seen record to that empty pre-bump number, so when
-that release really shipped its notes were already marked read. Fixed 2026-08-11 — the record now
-only advances when there was something to show. Don't reintroduce an unconditional
-`setLastSeenRelease` in that path.
+⚠️ **A release must land UNDERNEATH the other app's pre-bump — this is a required step, not a
+caveat (Ken, 1 Sep 2026).** There is one branch and one push, so a naive release of app A also
+deploys app B's pre-bumped `appRelease`, and B's users then run a number one ahead of B's
+manifest.
+
+This was previously written off as "aspirational" and harmless, on the grounds that B's manifest
+hasn't moved so no update is offered. **That reasoning covers the update mechanism and nothing
+else.** It shipped on 1 Sep 2026: the Tiles 23 push carried Symbols' pre-bump, and the Symbols app
+went out announcing itself as **release 35 — a release that does not exist**. Ken saw it within
+minutes. Settings → About and the console banner are precisely where a user looks to tell us what
+they are running, so a wrong number there costs a support conversation and undermines every version
+question that follows.
+
+**So do it the way the scad repo does** (its `RELEASING.md` has had this technique all along,
+because there a leaked pre-bump breaks the updater outright):
+
+```bash
+git reset --mixed origin/main     # keep the working tree; drop local pre-bump commits
+git add <app>/sw.js <app>/index.html <app>/CHANGELOG.md <app>/latest_app_version.json
+git commit -m "Release … <N>"     # ONLY the released app's files
+git push origin main
+```
+
+The other app's pre-bumped `index.html` stays an **unstaged working-tree change**, so it is not in
+the commit. Re-commit both pre-bumps locally afterwards (step 8). **On `main`, every app's shell,
+`CACHE_NAME` and manifest must agree on that app's last public release** — check it after the push,
+not before.
+
+⚠️ **If a pre-bump does reach `main`, correcting it needs a `CACHE_NAME` bump too** — `index.html`
+is precached, so cached clients keep showing the wrong number until the key moves.
+
+Related but separate, and both guards are still needed: an empty pre-bump number used to be
+*silently destructive* for that app's next "What's new" — `maybeShowWhatsNew` advanced the
+last-seen record to it, so when the release really shipped its notes were already marked read.
+Fixed 2026-08-11; the record now only advances when there was something to show. Don't reintroduce
+an unconditional `setLastSeenRelease` in that path.
 
 ## Releasing — trigger phrases
 
@@ -141,8 +169,10 @@ The ritual (let `<app>` = `symbols` or `tiles`):
    file changed) as one commit.
 7. **Push `origin main`.** GitHub Pages redeploys within ~1 minute. Users of that app get the
    new build on their next reload (occasionally the one after, as the SW swaps in).
-8. **Start the next cycle — pre-bump.** Increment that app's `appRelease` to (release + 1),
-   commit locally, and **do not push.**
+8. **Start the next cycle — pre-bump.** Increment that app's `appRelease` to (release + 1) and
+   re-commit the OTHER app's pre-bump you set aside in step 6, as one or two local commits.
+   **Do not push.** `main` now shows both apps at their released numbers, with the pre-bumps
+   sitting unpushed on top.
 
 ## Invariants — do not break these
 
