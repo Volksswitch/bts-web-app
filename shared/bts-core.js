@@ -81,15 +81,42 @@ const APP_MANIFEST_URL = './latest_app_version.json';
 
 // SCAD-file update (parallel to the app self-update, but for the designer .scad
 // this app owns — the one the user carries in their connected folder). The
-// canonical .scad + its manifest live in a SEPARATE repo (scadRepo) so the
-// .scad releases INDEPENDENTLY of the web app — a .scad publish never redeploys
-// the app, and an app release never touches the .scad. The manifest names the
-// latest `scad_version` and where to download the matching .scad; when the user's
-// local .scad is behind, the app offers an in-place update (see checkForScadUpdate).
-// raw.githubusercontent serves both with CORS; the filename is URL-encoded.
-// ⚠️ Keep SCAD_REPO in lockstep with the scad repo (and its publish script).
-const SCAD_REPO = APP_CONFIG.scadRepo;
-const SCAD_MANIFEST_URL = `https://raw.githubusercontent.com/${SCAD_REPO}/main/${APP_CONFIG.scadManifestFile}`;
+// manifest names the latest `scad_version` and where to download the matching
+// .scad; when the user's local .scad is behind, the app offers an in-place
+// update (see checkForScadUpdate).
+//
+// ⚠ SERVED FROM THIS APP'S OWN ADDRESS, beside its index.html — the same
+// reasoning as APP_MANIFEST_URL above, and for a failure measured in the field.
+//
+// This comment used to argue the opposite: that the .scad living in a separate
+// repo and releasing INDEPENDENTLY was the point, so a .scad publish never
+// redeployed the app. That position is SUPERSEDED (Ken, 1 Sep 2026) — do not
+// restore it. School and hospital networks block raw.githubusercontent.com by
+// name; it is a well-known way to pull arbitrary files past a firewall. So a
+// user on such a network could open the app — the whole point of moving to
+// bts.volksswitch.org — and never once be offered a designer update, silently,
+// because the check no-ops on any error. Observed on the keyguard app 1 Sep
+// 2026: an SLP inside a school network, holding a designer file 14 versions
+// old, offered nothing and told nothing. Ken's decision, in his words:
+//
+//   "This position pales in comparison to an SLP not being able to update
+//    their software so I'm happy to abandon it."
+//
+// Release-stream independence is a convenience for whoever publishes. An
+// unreachable update is a wall for the person using the software, and it lands
+// hardest on exactly the users these apps exist for.
+//
+// THE COST, accepted deliberately: a new designer version now reaches users
+// only when the app is released. scripts/publish-designer-file.mjs enforces
+// that pairing so the middle step cannot be forgotten.
+//
+// ⚠ The .scad and its manifest are deliberately ABSENT from sw.js's SHELL
+// precache list. A precached designer file could never be replaced.
+//
+// Relative on purpose, exactly like APP_MANIFEST_URL: resolved against the
+// document, so it lands on `<wherever this app is served>/<manifest>`.
+const SCAD_REPO = APP_CONFIG.scadRepo;   // still recorded: the .scad's home for publishing
+const SCAD_MANIFEST_URL = `./${APP_CONFIG.scadManifestFile}`;
 const SCAD_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;   // "Remind me in a week"
 
 // User-facing "What's new" notes come from the shell's APP_CONFIG.releaseNotes,
@@ -527,19 +554,44 @@ function clearScadSnooze(){ try { localStorage.removeItem(LS_SCAD_SNOOZE); } cat
 async function checkForScadUpdate(){
   if (!folder || !folder.dir) return;
   const loaded = parseScadVersion(SCAD_TEXT);
-  if (loaded == null) return;                        // can't read a version — don't nag
+  if (loaded == null){
+    logLine(`${capFirst(DESIGNER)}: no version number found inside it — not checking for updates.`);
+    return;                                          // can't read a version — don't nag
+  }
+
+  // Every path below SAYS what it found. Silence used to be the only outcome a
+  // user ever saw here, which made "we could not ask" indistinguishable from
+  // "you are up to date" — for them, and for anyone they reported it to. That
+  // cost an afternoon of diagnosis on the keyguard app before the cause (a
+  // blocked hostname) was found. The check still never blocks: whatever it
+  // finds, the user keeps working with the file they already have.
   let manifest;
   try {
     const r = await fetch(SCAD_MANIFEST_URL + '?t=' + Date.now(), { cache: 'no-store' });
-    if (!r.ok) return;
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     manifest = await r.json();
-  } catch { return; }                                // offline / github blocked — silent no-op
+  } catch (e){
+    logLine(`${capFirst(DESIGNER)}: couldn't check for a newer version (${e.message}) — `
+          + `you may be offline. Your ${DESIGNER} file is unaffected.`);
+    return;
+  }
+
   const latest = Number(manifest && manifest.version);
-  if (!Number.isFinite(latest) || latest <= loaded) return;   // already current
+  if (!Number.isFinite(latest)){
+    logLine(`${capFirst(DESIGNER)}: the published version list could not be read — skipping the update check.`);
+    return;
+  }
+  if (latest <= loaded){
+    logLine(`${capFirst(DESIGNER)}: up to date (v${loaded}).`);
+    return;
+  }
 
   // Honour an active snooze, but a version newer than the postponed one re-prompts.
   const sn = getScadSnooze();
-  if (sn && sn.until > Date.now() && sn.forVersion >= latest) return;
+  if (sn && sn.until > Date.now() && sn.forVersion >= latest){
+    logLine(`${capFirst(DESIGNER)}: v${latest} is available (you have v${loaded}) — reminder postponed.`);
+    return;
+  }
 
   const choice = await showScadUpdateModal({ loaded, latest, notes: manifest.notes, scadName: folder.scadName });
   if (choice === 'update'){

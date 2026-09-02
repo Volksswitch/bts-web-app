@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+- **Updated tile & puzzle designer file (v7).** This update to the web app is necessary to support an upgrade to the tile & puzzle designer. Open your folder and the app will offer you the new file.
+
 ## Release 22
 
 - What's new now always appears after the app updates itself. The setting that let
@@ -53,7 +55,6 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 - If the app ever opens with no settings at all — on a new computer, or after
   your browser has been cleared — it now offers to load a saved settings file
   right there on the opening screen, instead of quietly starting from scratch.
-
 
 ## Release 16
 

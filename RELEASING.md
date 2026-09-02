@@ -156,15 +156,46 @@ The ritual (let `<app>` = `symbols` or `tiles`):
 - **A shared-engine change bumps both apps' `CACHE_NAME`** — otherwise cached users of the app
   you didn't bump keep serving the stale shared file.
 
-## The designer `.scad`s are released from a SEPARATE repo
+## The designer `.scad`s — published in the scad repo, DELIVERED by a web app release
 
-Both apps' designer `.scad`s update **independently** of the web apps. Their canonical copies +
-manifests live in [`Volksswitch/bliss-tactile-symbols`](https://github.com/Volksswitch/bliss-tactile-symbols)
+Their canonical copies + manifests live in
+[`Volksswitch/bliss-tactile-symbols`](https://github.com/Volksswitch/bliss-tactile-symbols)
 (`latest_scad_version.json` for Symbols, `latest_tiles_version.json` for Tiles), with their own
-release process (see that repo's `RELEASING.md`). Publishing a `.scad` is a push to the **scad**
-repo and does **not** redeploy the web apps; releasing a web app does **not** touch the `.scad`s.
-The link is each shell's `scadRepo` + `scadManifestFile` (and the matching `scad_url` in the scad
-manifest) — keep them pointing at each other.
+release process (see that repo's `RELEASING.md`). That is where a `.scad` is *published*.
+
+⚠️ **Since 1 Sep 2026 publishing is not enough — the app must be released too.** Each app now
+serves its designer `.scad` and its version list **from its own address**, beside its
+`index.html`, so a user on a network that blocks `raw.githubusercontent.com` can still receive
+it. Those networks are schools and hospitals, which is where these users are. Until then, such a
+user could open the app and never once be offered a designer update, silently, because the check
+no-ops on any error.
+
+**This reverses the previous position** — that the `.scad` releasing independently was the point,
+so a `.scad` publish never redeployed the app. Ken, 1 Sep 2026: *"This position pales in
+comparison to an SLP not being able to update their software so I'm happy to abandon it."*
+Do not restore it; the old wording survives in this file's history and in `bts-core.js`'s
+superseded comment.
+
+**The full chain for a designer release** (`<app>` = `symbols` or `tiles`):
+
+1. **`bump bts` / `bump btp`** — publishes the `.scad` in the scad repo (that repo's ritual,
+   including Ken's website-ZIP rebuild, which is why this cannot be one command).
+2. **`node scripts/publish-designer-file.mjs <app>`** — trigger phrase **"publish the designer
+   file"**. Fetches the now-published `.scad`, verifies the version inside it matches the
+   manifest, writes both beside the app with a **relative** `scad_url`, adds the user-facing
+   changelog bullet and regenerates the bundled notes. Idempotent.
+3. **`bump bts web app` / `bump btp web app`** — the release that actually delivers it.
+
+**Step 3 is not optional.** A `.scad` sitting in the app folder reaches nobody. Say
+**"check designer delivery"** (`node scripts/check-designer-delivery.mjs --live`) at any time to
+see, per app, what is published vs bundled vs actually served — it exits non-zero when something
+published is not reaching users.
+
+⚠️ Keep `<app>/<manifest>` and the `.scad` beside it **out of that app's `sw.js` `SHELL`** — a
+precached designer file could never be replaced.
+
+`scadRepo` is still recorded in each shell (it is where the `.scad` is published from), but
+`SCAD_MANIFEST_URL` no longer uses it — it is relative now, like `APP_MANIFEST_URL`.
 
 ## What's different from keyguard
 

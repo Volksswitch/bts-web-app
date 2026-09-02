@@ -768,11 +768,23 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   **symbol designer `.scad`** has its own version axis (`scad_version` in its `/*[Hidden]*/` block):
   when the folder's local `.scad` is behind the published `latest_scad_version.json`, the app offers
   an in-place update (`checkForScadUpdate` → `showScadUpdateModal` → `applyScadUpdate`; download +
-  verify version + overwrite in place + reload). The canonical `.scad` + `latest_scad_version.json`
-  live in a **SEPARATE repo** (`Volksswitch/bliss-tactile-symbols`, constant `SCAD_REPO` in
-  `app.html`) so the `.scad` releases **independently** of the app — a `.scad` publish never
-  redeploys the app and an app release never touches the `.scad`. That repo has its own
-  `RELEASING.md` + `publish-scad-version.mjs`. **⚠️ FOUR trigger phrases — the two "bump OLD …"
+  verify version + overwrite in place + reload). The canonical `.scad` + its manifest are
+  PUBLISHED from a **SEPARATE repo** (`Volksswitch/bliss-tactile-symbols`, still recorded as
+  `scadRepo`), which has its own `RELEASING.md` + `publish-scad-version.mjs`.
+  **⚠️ But since 1 Sep 2026 each app SERVES the `.scad` and its version list from its OWN
+  address**, beside its `index.html`, fetched by a relative URL — because school and hospital
+  networks block `raw.githubusercontent.com` by name, so a user could open the app and never
+  once be offered a designer update, silently. **This reverses the old "the `.scad` releases
+  independently" position**, deliberately (Ken, 1 Sep 2026: *"This position pales in comparison
+  to an SLP not being able to update their software so I'm happy to abandon it."*) — do not
+  restore it. The cost: **a published `.scad` reaches nobody until that app is released.**
+  Chain: `bump bts`/`bump btp` (publish) → **"publish the designer file"**
+  (`scripts/publish-designer-file.mjs <app>`, which also writes the changelog bullet so the
+  release cannot be forgotten) → `bump bts web app`/`bump btp web app` (deliver). Say
+  **"check designer delivery"** (`scripts/check-designer-delivery.mjs --live`) to see published
+  vs bundled vs actually-served per app. Keep the `.scad` and its manifest **out of `SHELL`** —
+  a precached designer file could never be replaced. Full rationale and how to apply this to
+  other projects: `%OneDrive% T-Z\Volksswitch\PLAYBOOK-single-origin-companion-updates.md`. **⚠️ FOUR trigger phrases — the two "bump OLD …"
   ones are RETIRED (20 Aug 2026)**, along with the address they released to. There is now one
   address, `bts.volksswitch.org` (remote `origin`, repo `bts-web-app`), so the 2026-08-16 trap —
   **"bump old bts web app" CONTAINS "bump bts web app"** — can no longer bite: the familiar
@@ -1195,7 +1207,8 @@ BTS web app/
 │   ├── sw.js          ← Service worker (scope /symbols/, CACHE_NAME bts-symbols-vN)
 │   ├── manifest.webmanifest · latest_app_version.json · CHANGELOG.md
 ├── tiles/             ← Bliss Tiles and Puzzles app (same shape as symbols/)
-├── scripts/           ← apply-release-notes.mjs (both apps), publish-app-version.mjs <app>
+├── scripts/           ← apply-release-notes.mjs (both apps), publish-app-version.mjs <app>,
+│                     publish-designer-file.mjs <app>, check-designer-delivery.mjs [--live]
 ├── favicon.svg        ← landing-page mark only
 ├── icons/             ← per-app icon sets, see "App icons — the Volksswitch standard"
 │                        <app>.svg · <app>-maskable.svg · <app>-{192,512,maskable-512}.png

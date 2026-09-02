@@ -1,0 +1,8 @@
+{
+  "version": 4,
+  "scad_filename": "Bliss Tactile Symbols.scad",
+  "scad_url": "./Bliss%20Tactile%20Symbols.scad",
+  "notes": [
+    "\"Diameter Of Hole\" and \"Move Hole Vertically\" can now be set to a tenth of a millimeter instead of a whole one."
+  ]
+}
