@@ -13,3 +13,9 @@ node_modules/
 # Claude Code machine-local settings (incl. launch.json — the local preview
 # server config, which points at this machine's python)
 .claude/
+
+# Generated documents. The .md is the source; the .docx is rebuilt by
+# "build the security document" and is never byte-identical twice (a .docx is a
+# zip, so it embeds timestamps) - tracking it churned the repo on every build.
+# The file still lives on disk and syncs via OneDrive; Ken converts it to PDF.
+SECURITY.docx

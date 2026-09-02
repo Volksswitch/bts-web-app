@@ -1210,7 +1210,8 @@ BTS web app/
 ├── SECURITY.md        ← Security overview for IT teams — the SOURCE. Update it in the same
 │                     change as anything affecting the network, browser storage, or the
 │                     user's files ("build the security document" → SECURITY.docx)
-├── SECURITY.docx      ← Generated output; never hand-edit. Ken converts to PDF + uploads
+├── SECURITY.docx      ← Generated output, NOT tracked (a .docx is a zip, so it churned the
+│                     repo on every build). Never hand-edit; Ken converts to PDF + uploads
 ├── scripts/           ← apply-release-notes.mjs (both apps), publish-app-version.mjs <app>,
 │                     publish-designer-file.mjs <app>, check-designer-delivery.mjs [--live],
 │                     build-security-docx.py [in.md [out.docx]]
@@ -1314,7 +1315,8 @@ scheme must not restyle the app. Ken asked for icons; the interior was deliberat
   `SECURITY.md` is the source; **"build the security document"**
   (`python scripts/build-security-docx.py`) renders `SECURITY.docx`; **Ken converts it to
   PDF and uploads it himself**, so the script deliberately stops at the .docx. The .docx is
-  an OUTPUT — never hand-edit it. ⚠️ **Whenever a change alters what the apps do on the
+  an OUTPUT — never hand-edit it, and it is **gitignored** (a .docx is a zip, so no two builds
+  are byte-identical; it lives on disk and syncs via OneDrive). ⚠️ **Whenever a change alters what the apps do on the
   network, in browser storage, or with the user's files, update `SECURITY.md` and rebuild in
   the same change.** The keyguard's copy once fell three months behind the app it described,
   still promising IT teams there was no third-party contact after a GitHub-hosted update
