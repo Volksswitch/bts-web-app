@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 23
+
 - **Updated tile & puzzle designer file (v7).** This update to the web app is necessary to support an upgrade to the tile & puzzle designer. Open your folder and the app will offer you the new file.
 
 ## Release 22
