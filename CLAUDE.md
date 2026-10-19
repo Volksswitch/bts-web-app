@@ -1269,8 +1269,8 @@ icons/
 
 - Flat naming, `icons/<app>-<size>.png`. Sources and PNGs sit together in `icons/`.
 - Root `favicon.svg` is the **landing page's** mark only (currently the Symbols glyph).
-- **Each app keeps its OWN glyph** — Symbols is the Blissymbol for "all" (square + both
-  diagonals), Tiles is the Blissymbol face. The plate color says *which origin*; the glyph
+- **Each app keeps its OWN glyph** — Symbols is the Blissymbol for "father" (the roof over
+  the man figure — it was "all" until Ken changed it, 2026-10-19), Tiles is the Blissymbol face. The plate color says *which origin*; the glyph
   says *which app*. Both distinctions are needed at once.
 - **The maskable variant is not optional.** Android crops icons to its own shape, so a
   rounded-plate icon gets its corners cut twice and the glyph can be clipped. Tiles shipped
@@ -1279,12 +1279,13 @@ icons/
 ### Regenerating the PNGs
 
 `.svg` is the source of truth — edit it, then re-render. ImageMagick is installed; there is
-no cairosvg/rsvg on this machine:
+no cairosvg/rsvg on this machine. **`-density 1152` is required** — without it ImageMagick
+draws the 32-unit SVG at 32 px and enlarges that, giving a blurry icon (2026-10-19):
 
 ```bash
-magick -background none icons/<app>.svg          -resize 192x192 icons/<app>-192.png
-magick -background none icons/<app>.svg          -resize 512x512 icons/<app>-512.png
-magick -background none icons/<app>-maskable.svg -resize 512x512 icons/<app>-maskable-512.png
+magick -density 1152 -background none icons/<app>.svg          -resize 192x192 icons/<app>-192.png
+magick -density 1152 -background none icons/<app>.svg          -resize 512x512 icons/<app>-512.png
+magick -density 1152 -background none icons/<app>-maskable.svg -resize 512x512 icons/<app>-maskable-512.png
 ```
 
 ### The title bar matches the icon
