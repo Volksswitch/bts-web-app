@@ -1,17 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Maskable app icon — source for icon-maskable-512.png.
-       Same glyph as favicon.svg (the Blissymbol for "all"), but the accent
-       plate is FULL-BLEED with no rounded corners: a maskable icon is cropped
-       to whatever shape the platform wants (circle, squircle, rounded square),
-       so the background must reach every edge or the crop cuts into it.
-       The glyph sits inside the 80% safe zone — its corners are 9.9 units from
-       centre, well within the 12.8-unit safe radius — so no crop can clip it.
+  <!-- Maskable app icon — source for symbols-maskable-512.png.
+       Same glyph as symbols.svg (the Blissymbol for "father"), but the plate
+       is FULL-BLEED with no rounded corners: a maskable icon is cropped to
+       whatever shape the platform wants, so the background must reach every
+       edge or the crop cuts into it. The glyph's farthest points are 8.9 units
+       from centre, within the 12.8-unit safe radius, so no crop can clip it.
        Public domain (CC0), as with the rest of this project. -->
   <rect width="32" height="32" fill="#000000"/>
   <g fill="none" stroke="#ffffff" stroke-width="2"
      stroke-linecap="round" stroke-linejoin="round">
-    <path d="M9 9H23V23H9Z"/>
-    <path d="M9 9 23 23"/>
-    <path d="M23 9 9 23"/>
+    <path d="M8 16 16 8 24 16"/>
+    <path d="M16 8V16"/>
+    <path d="M12 24 16 16 20 24"/>
   </g>
 </svg>

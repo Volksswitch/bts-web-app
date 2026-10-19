@@ -1,17 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <!-- App icon for the Bliss Tactile Symbol Designer.
-       The glyph is the Blissymbol for "all" (SVG files/all.svg): a square
-       crossed by both diagonals, drawn with the round caps and joins the
-       source uses. Stroke weight keeps the source's stroke-to-side ratio
-       (50.4167 / 585 ≈ 0.086), rounded up slightly so it still reads at 16px.
-       White on the app's accent plate rather than the source's black-on-white,
-       so it stays visible against both light and dark browser chrome.
+       The glyph is the Blissymbol for "father" (father,dad,daddy,papa,pa,pop.svg):
+       the roof-shaped "protection" over the man figure, drawn with the round
+       caps and joins the source uses. The source ink is a 128-unit square on
+       the Bliss matrix (sky line to ground line), mapped here to 16 units
+       centred on the plate, so 1 icon unit = 8 matrix units. Stroke is 2 rather
+       than the scaled 0.875 so it still reads at 16px.
+       White on a black plate: the Volksswitch mark for an app served from its
+       own volksswitch.org subdomain.
        Public domain (CC0), as with the rest of this project. -->
   <rect width="32" height="32" rx="6" fill="#000000"/>
   <g fill="none" stroke="#ffffff" stroke-width="2"
      stroke-linecap="round" stroke-linejoin="round">
-    <path d="M9 9H23V23H9Z"/>
-    <path d="M9 9 23 23"/>
-    <path d="M23 9 9 23"/>
+    <path d="M8 16 16 8 24 16"/>
+    <path d="M16 8V16"/>
+    <path d="M12 24 16 16 20 24"/>
   </g>
 </svg>
