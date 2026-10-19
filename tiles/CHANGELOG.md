@@ -7,6 +7,10 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 24
+
+- **Updates now arrive complete.** An update could occasionally keep a piece of the previous version (the old app icon, for example) until the update after it. Every update now fetches every file fresh.
+
 ## Release 23
 
 - **Updated tile & puzzle designer file (v7).** This update to the web app is necessary to support an upgrade to the tile & puzzle designer. Open your folder and the app will offer you the new file.

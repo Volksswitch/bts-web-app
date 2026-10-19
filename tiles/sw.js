@@ -5,7 +5,7 @@
 // handler purges old caches so clients get the new version on next load. It only
 // ever goes UP, and moves only at release (in lockstep with this app's
 // APP_RELEASE and its latest_app_version.json). See RELEASING.md.
-const CACHE_NAME = 'bts-tiles-v28';
+const CACHE_NAME = 'bts-tiles-v29';
 
 // This app's shell, served over HTTP from this origin (GitHub Pages). The shared
 // engine + vendored deps live above /tiles/, reached with ../ . The user's
@@ -32,7 +32,12 @@ const SHELL = [
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME)
-      .then(c => c.addAll(SHELL))
+      // cache:'reload' so the install fetches from the network, never from the
+      // browser's HTTP cache. Pages serves everything max-age=600, so a plain
+      // addAll on a release within 10 minutes of a visit could precache the OLD
+      // file under the NEW cache name, stuck there until the next release
+      // (seen 2026-10-19: Symbols 35 kept showing the previous icon).
+      .then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });
