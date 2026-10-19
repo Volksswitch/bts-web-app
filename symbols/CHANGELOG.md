@@ -7,6 +7,10 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 36
+
+- **Updates now arrive complete.** An update could occasionally keep a piece of the previous version (the old app icon, for example) until the update after it. Every update now fetches every file fresh.
+
 ## Release 35
 
 - **A new app icon.** The app now wears the Blissymbol for "father", still white on black.
