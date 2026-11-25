@@ -67,7 +67,7 @@
     // SET of symbols from an existing one. Symbols only — Tiles' concepts carry
     // values unique to each concept, so a shared style has nothing to give it.
     stylesEnabled:    true,
-    appRelease:       36,
+    appRelease:       37,
     appRepo:          'Volksswitch/bts-web-app',
     appDir:           'symbols',
     scadRepo:         'Volksswitch/bliss-tactile-symbols',
@@ -198,6 +198,9 @@
   ],
   "36": [
     "Updates now arrive complete. An update could occasionally keep a piece of the previous version (the old app icon, for example) until the update after it. Every update now fetches every file fresh."
+  ],
+  "37": [
+    "Reconnecting to your folder no longer does nothing when the browser stops answering. After a browser update, the browser's memory of your folder can go bad, so that it never answers when the app asks to use the folder, and Reconnect looked like a dead button. Now the start screen says \"Opening\" and your folder's name as soon as you click. If the browser hasn't answered within a few seconds, the app says so and the main button becomes Open folder…: choose the same folder again and you're back. And if, after several seconds, the browser still hasn't let the app use your folder, a message says what to do if the browser isn't asking you anything. Your files are safe in the folder the whole time."
   ]
 };
   // @@RELEASE_NOTES_END@@
