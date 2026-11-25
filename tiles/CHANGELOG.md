@@ -7,6 +7,8 @@ User-facing changes, newest first. Each bullet is written the way a user reads i
 
 ## Unreleased (next release)
 
+## Release 25
+
 - **Reconnecting to your folder no longer does nothing when the browser stops answering.** After a browser update, the browser's memory of your folder can go bad, so that it never answers when the app asks to use the folder, and **Reconnect** looked like a dead button. Now the start screen says "Opening" and your folder's name as soon as you click. If the browser hasn't answered within a few seconds, the app says so and the main button becomes **Open folder…**: choose the same folder again and you're back. And if, after several seconds, the browser still hasn't let the app use your folder, a message says what to do if the browser isn't asking you anything. Your files are safe in the folder the whole time.
 
 ## Release 24
