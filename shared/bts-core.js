@@ -4529,6 +4529,35 @@ document.querySelectorAll('#settings-cats .cat').forEach(c => c.addEventListener
 // gesture). Chrome/Edge only. No "project" concept: just one folder.
 let folder = null;   // { dir, scadHandle, scadName, jsonHandle, jsonName, svgDir }
 
+// A remembered folder can stop answering altogether (Chrome 158, November 2026 —
+// seen first in the keyguard designer and Conversant AAC): asking whether the app
+// may still use it never settles — no answer, no error, no permission box — while
+// the folder itself opens fine in Windows. Choosing the same folder again through
+// the picker is granted at once. So nothing here may wait on the browser forever:
+//  - queryPermission never shows the user anything and answers from what the
+//    browser already knows, so silence past FOLDER_ANSWER_MS means it CAN'T
+//    answer. Safe to cut short.
+//  - requestPermission may be showing the browser's question, and the user may
+//    still be reading it, so it is NEVER cut short. After FOLDER_QUESTION_HINT_MS
+//    the app says what to do if no question appeared.
+//  - Look-ups in the browser database get IDB_ANSWER_MS; the start screen waits
+//    on one before it appears at all. (Not seen failing; Conversant added the
+//    same limit as a precaution, and it costs nothing.)
+const FOLDER_ANSWER_MS = 3000;
+const FOLDER_QUESTION_HINT_MS = 8000;
+const IDB_ANSWER_MS = 4000;
+function withinMs(promise, ms, what){
+  let timer;
+  const giveUp = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const e = new Error(`the browser didn't answer within ${ms / 1000} seconds when ${what}`);
+      e.name = 'TimeoutError';
+      reject(e);
+    }, ms);
+  });
+  return Promise.race([promise, giveUp]).finally(() => clearTimeout(timer));
+}
+
 const IDB_DB = 'bts-db', IDB_STORE = 'handles', IDB_KEY = 'folder';
 function idbOpen(){
   return new Promise((res, rej) => {
@@ -4539,34 +4568,75 @@ function idbOpen(){
   });
 }
 async function idbGet(){
-  try { const db = await idbOpen();
-    return await new Promise((res, rej) => {
-      const r = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(IDB_KEY);
-      r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error);
-    });
-  } catch { return null; }
+  try {
+    return await withinMs((async () => {
+      const db = await idbOpen();
+      return await new Promise((res, rej) => {
+        const r = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(IDB_KEY);
+        r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error);
+      });
+    })(), IDB_ANSWER_MS, 'looking up the remembered folder');
+  } catch (e) {
+    if (e.name === 'TimeoutError') logLine(`Note: ${e.message} — carrying on without it.`);
+    return null;
+  }
 }
 async function idbPut(h){
-  try { const db = await idbOpen();
-    await new Promise((res, rej) => {
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).put(h, IDB_KEY);
-      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
-    });
+  try {
+    await withinMs((async () => {
+      const db = await idbOpen();
+      await new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(h, IDB_KEY);
+        tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+      });
+    })(), IDB_ANSWER_MS, 'remembering the folder');
   } catch (e) { console.warn('Could not persist folder handle:', e); }
 }
 async function idbClear(){
-  try { const db = await idbOpen();
-    await new Promise((res, rej) => {
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).delete(IDB_KEY);
-      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
-    });
+  try {
+    await withinMs((async () => {
+      const db = await idbOpen();
+      await new Promise((res, rej) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(IDB_KEY);
+        tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+      });
+    })(), IDB_ANSWER_MS, 'forgetting the folder');
   } catch {}
 }
+
+// Is permission already granted? Throws TimeoutError when the browser is silent.
+function queryFolderPermission(handle){
+  return withinMs(handle.queryPermission({ mode: 'readwrite' }), FOLDER_ANSWER_MS,
+                  'asked whether the app may still use the folder');
+}
+// Ask for permission — never cut short (a question may be on screen). onSlow runs
+// once if the browser still hasn't answered after FOLDER_QUESTION_HINT_MS.
+async function askForFolder(handle, onSlow){
+  const hint = setTimeout(() => onSlow && onSlow(), FOLDER_QUESTION_HINT_MS);
+  try { return await handle.requestPermission({ mode: 'readwrite' }); }
+  finally { clearTimeout(hint); }
+}
+// Used mid-session, before a save or an export: true when the app may write.
+// A folder that goes silent is reported in the log, and the caller's own
+// "permission denied" message follows.
 async function ensureRW(handle){
-  if ((await handle.queryPermission({ mode: 'readwrite' })) === 'granted') return true;
-  return (await handle.requestPermission({ mode: 'readwrite' })) === 'granted';
+  const name = (handle.kind === 'directory' ? handle.name : folder && folder.dir && folder.dir.name) || 'your folder';
+  try {
+    if ((await queryFolderPermission(handle)) === 'granted') return true;
+  } catch (e) {
+    if (e.name !== 'TimeoutError') throw e;
+    logLine(`The browser didn't answer about "${name}". If this keeps happening, use “Reload the app” ` +
+            `(Settings → Preferences) and choose "Connect to new folder", picking the same folder again — your files are safe in it.`);
+    return false;
+  }
+  const perm = await askForFolder(handle, () => {
+    logLine(`Waiting for the browser to let the app use "${name}". If it isn't asking you anything, ` +
+            `use “Reload the app” (Settings → Preferences) and choose "Connect to new folder", picking the same folder again.`);
+    setStatus('Waiting for the browser — see the log.', 'busy');
+  });
+  return perm === 'granted';
 }
 
 // DOM confirm (native confirm() consumes the user gesture the permission prompt
@@ -4583,10 +4653,22 @@ function confirmDiscard(message){
   });
 }
 
-function showGate(msg){
+// `note` shows the message in the gate's ordinary text color — progress, not a
+// problem ("Opening …").
+function showGate(msg, note = false){
   const g = document.getElementById('launchGate'); g.hidden = false;
   const e = document.getElementById('gateErr');
+  e.classList.toggle('note', !!note);
   if (msg){ e.textContent = msg; e.hidden = false; } else { e.hidden = true; }
+}
+// Back to a plain "Open folder…" start screen with nothing remembered — used
+// when the remembered folder can't be opened, so the main button becomes the
+// folder picker, which is the cure.
+async function forgetRememberedFolder(){
+  await idbClear();
+  document.getElementById('gateMsg').hidden = false;
+  document.getElementById('gateOpenBtn').textContent = 'Open folder…';
+  document.getElementById('gateNewBtn').hidden = true;
 }
 
 // Read the folder's .scad, .json and SVG files subfolder, then (re)build the UI.
@@ -4694,17 +4776,57 @@ async function loadFromFolder(dir){
 
 // User-driven: reuse the remembered folder if we can, else show the picker.
 // `forceNew` skips the remembered handle and always shows the OS picker.
+// Each call takes a number. One overtaken by a newer call while it waited on the
+// browser stops when the browser finally answers, so a late answer about the old
+// folder can't open it on top of the one the user has since chosen.
+let connectSeq = 0;
 async function connectFolder(forceNew){
   if (!window.showDirectoryPicker){ showGate('This browser has no File System Access API — use Chrome or Edge.'); return; }
+  const seq = ++connectSeq;
+  const stale = () => seq !== connectSeq;
   let dir = null;
   const remembered = forceNew === true ? null : await idbGet();
+  if (stale()) return;
   if (remembered){
-    try { if (await ensureRW(remembered)) dir = remembered; } catch { /* fall through to picker */ }
+    const name = remembered.name || 'your folder';
+    // Said at once, so a browser that goes quiet doesn't look like a dead button.
+    showGate(`Opening “${name}”…`, true);
+    try {
+      let perm = await queryFolderPermission(remembered);
+      if (perm !== 'granted'){
+        perm = await askForFolder(remembered, () => {
+          if (stale()) return;
+          logLine(`The browser hasn't answered about "${name}" after ${FOLDER_QUESTION_HINT_MS / 1000} seconds.`);
+          showGate(`Waiting for the browser to let the app use “${name}”. If it isn't asking you anything, ` +
+                   `click “Connect to new folder” and choose the same folder again.`);
+        });
+      }
+      if (stale()) return;
+      if (perm === 'granted') dir = remembered;
+    } catch (e){
+      if (stale()) return;
+      if (e.name === 'TimeoutError'){
+        // The Chrome 158 failure: no answer at all. Don't open the picker on our
+        // own — the click that started this is seconds old — and don't keep a
+        // memory that can't be used: the main button becomes "Open folder…".
+        logLine(`Could not reconnect to "${name}": ${e.message}.`);
+        await forgetRememberedFolder();
+        if (stale()) return;
+        showGate(`The browser didn't answer about “${name}”. This can happen after the browser updates ` +
+                 `itself. Click “Open folder…” and choose the same folder again — your files are safe in it.`);
+        return;
+      }
+      /* any other error: fall through to the picker */
+    }
   }
   if (!dir){
     try { dir = await window.showDirectoryPicker({ id: 'bts-folder', mode: 'readwrite' }); }
-    catch (e){ if (e.name === 'AbortError') return; showGate(e.message); return; }
-    if (!(await ensureRW(dir))){ showGate('Read/write permission is required to save presets and STLs.'); return; }
+    catch (e){ if (stale()) return; if (e.name === 'AbortError'){ showGate(''); return; } showGate(e.message); return; }
+    if (stale()) return;
+    let ok = false;
+    try { ok = await ensureRW(dir); } catch {}
+    if (stale()) return;
+    if (!ok){ showGate('Read/write permission is required to save presets and STLs.'); return; }
   }
   try {
     await loadFromFolder(dir);
@@ -4712,12 +4834,7 @@ async function connectFolder(forceNew){
   } catch (e){
     logLine('Open folder failed: ' + (e.message || e));
     showGate(e.message || String(e));
-    if (dir === remembered){                    // don't get stuck on a bad remembered handle
-      await idbClear();
-      document.getElementById('gateMsg').hidden = false;
-      document.getElementById('gateOpenBtn').textContent = 'Open folder…';
-      document.getElementById('gateNewBtn').hidden = true;
-    }
+    if (dir === remembered) await forgetRememberedFolder();   // don't get stuck on a bad remembered handle
   }
 }
 

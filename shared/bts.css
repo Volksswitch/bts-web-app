@@ -328,6 +328,7 @@
     border-radius: 3px; padding: 0 4px; font-size: 12px; }
   .whatsnew-foot.su-foot { display: flex; gap: 8px; justify-content: flex-end; }
   .gate-err { color: var(--danger); font-weight: 500; }
+  .gate-err.note { color: var(--muted); font-weight: 400; }   /* progress, not a problem */
   .gate-note { font-size: 11px; color: var(--muted); margin: 10px 0 0; }
 
   /* Preset management row (Save / Add / Delete + dirty marker) */

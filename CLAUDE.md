@@ -321,6 +321,25 @@ Single HTML file, one inline ES module. **No build step, no bundler** — served
   parses the .scad, builds the form, and renders. No "project" concept (unlike keyguard) — just one
   folder. **Chrome/Edge only.** See [[bts-fsa-folder-model]]. *(Future: version check + automatic
   downloads from within the app, the keyguard `latest_app_version.json` pattern — not built yet.)*
+  - **Nothing on the way into the folder may wait on the browser forever (Chrome 158, Nov 2026).**
+    After Chrome 158, the keyguard designer and Conversant AAC both met a remembered folder whose
+    permission check **never settled** — no answer, no error, no permission box — while the folder
+    opened fine in Windows; **picking the same folder again through the picker was granted at
+    once**. Here that made **Reconnect** a dead button. Fixed 25 Nov 2026 (Ken asked for the
+    keyguard/Conversant fix to be carried over): `queryPermission` gives up after 3 s
+    (`FOLDER_ANSWER_MS`) — it never shows the user anything, so silence means the browser *can't*
+    answer — and the start screen then **forgets the remembered folder** and says to click
+    **Open folder…** and choose the same folder again (the main button becomes the picker; the app
+    does not open the picker on its own, as the click is seconds old). `requestPermission` is
+    **never cut short** (a real question may be on screen); after 8 s a hint points at **Connect to
+    new folder**. Browser-database look-ups get 4 s, so the start screen always appears.
+    `connectSeq` makes a late answer to an abandoned attempt a no-op, so it can't open the old
+    folder over the one just chosen. Mid-session (`ensureRW`, before saves/exports) a silent check
+    logs what to do and returns "denied". Tested on the local server by making the check never
+    answer (an OPFS folder standing in for the real one, since the preview has no folder picker).
+    **The error path was already covered** (an error falls through to the picker; a remembered
+    folder that won't load is forgotten), and BTS has no Recent-projects list, so keyguard's
+    `isSameEntry` changes have no counterpart here.
 - **Deps (vendored):** `openscad-wasm/` (v0.0.4, single-threaded — the WASM is embedded in
   `openscad.js`; no separate `.wasm`; COOP/COEP headers not required) and `vendor/three/`
   (three.module.min.js + OrbitControls + STLLoader). Loaded via an import map.
